@@ -52,7 +52,10 @@ def divide_file(input_file, start_time, duration, output_file):
         "-y",
             output_file
     ]
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if debug_mode:
+        print(f"cmd: {cmd}")
+    else:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def main():
     global debug_mode
@@ -86,7 +89,10 @@ def main():
         print(f"エラー: 入力ファイル '{input_file}' が見つかりません。")
         sys.exit(1)
     
-    start_datetime, end_datetime, other, ext = parse_666_filename(input_file)
+    file_body_with_ext = os.path.basename(input_file)
+    if debug_mode:
+        print(f"file_body_with_ext: {file_body_with_ext}")
+    start_datetime, end_datetime, other, ext = parse_666_filename(file_body_with_ext)
     
     if debug_mode:
         print(f"デバッグ情報:")
