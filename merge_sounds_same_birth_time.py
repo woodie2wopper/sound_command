@@ -9,10 +9,11 @@ def usage():
     print("ディレクトリ内のファイルを読み込み、ModifyTimeが同じファイルをマージします。")
     print("注意：ギャップレス録音でない限り、マージしたファイルの時間が合わない可能性があります。")
     print("オプション:")
-    print("  -S: 開始時刻をタイムスタンプとして使用 (デフォルト)")
-    print("  -E: 終了時刻をタイムスタンプとして使用")
-    print("  -h: ヘルプを表示")
-    print("  -d: デバッグモードを有効化")
+    print("  -S 開始時刻をタイムスタンプとして使用 (デフォルト)")
+    print("  -E 終了時刻をタイムスタンプとして使用")
+    print("  -e [date] [time] タイムスタンプを指定する")
+    print("  -h ヘルプを表示")
+    print("  -d デバッグモードを有効化")
 
 def get_mtime(file_path):
     stat = os.stat(file_path)
@@ -73,8 +74,18 @@ def main():
             sys.exit(0)
         elif arg == "-d":
             debug_mode = True
-        elif arg in ["-S", "-E"]:
+        elif arg in ["-S", "-E", "-e"]:
             mode = arg
+            if mode == "-e":
+                # 次の2つの6桁の数字を読み込む
+                try:
+                    stamp_date = sys.argv[sys.argv.index("-e") + 1]
+                    stamp_time = sys.argv[sys.argv.index("-e") + 2]
+                    if not (stamp_date.isdigit() and stamp_time.isdigit() and len(stamp_date) == 6 and len(stamp_time) == 6):
+                        raise ValueError
+                except (IndexError, ValueError):
+                    print("エラー: -e オプションの後に6桁の数字を2つ指定してください")
+                    sys.exit(1)
         else:
             directory = arg
 
