@@ -42,6 +42,13 @@ author: Hideki Osaka(toriR. Lab)
   - --high-freq, -h 数値：分析する上限周波数（デフォルト10KHz）
   - --serch-range, -r 数値：トーンセットの各周波数から±数値の周波数範囲でサーチする。デフォルトは50Hz。
   - --input-audio, -i inputfile.wav：入力音源
+  - --max, -mx 数値：ピーク強度の最大値（デフォルトは自動調整）
+  - --min, -mn 数値：ピーク強度の最小値（デフォルトは自動調整）
+  - --fft-size, -fs 数値：FFTサイズ（デフォルト：2048）
+  - --moving-average, -ma 数値：周波数軸の移動平均（デフォルトで０ポイント）
+  - --fit-curve, -fc：ノイズフロア推定のためのフィッティング曲線を使用する
+  - --remove-signals, -rs：ノイズフロア推定のための信号のピークをフィッティング曲線で除去する
+  - --debug, -d：デバッグモード
   - コマンド例）${CMD} -c 1 -l 2000 -h 10000 -t toneset01.txt input.wav
 
 - 出力：
