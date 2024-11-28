@@ -32,6 +32,12 @@ author: Hideki Osaka(toriR. Lab)
 
 - ノイズレベルはトーンセットの周波数帯域でノイズフロアから求める。
 
+- スペクトログラムを出力する。
+  - FFT の結果をパワースペクトルに変換するために、np.abs(fft(segment, n=args.fft_size)) ** 2 を使用しました。
+  - パワースペクトル密度 (PSD) に変換するために、averaged_spectrum / (sample_rate * args.fft_size) を計算しました。
+  - dB への変換は、10 * np.log10(psd + np.finfo(float).eps) を使用しました。
+  - この変更により、FFT の強度が plt.specgram() の出力と一致するようになります。
+
 - 入力オプション：
   - 引数なし, --help, -h：help　簡単なコマンド紹介と使い方を表示
   - --cut, -c 数値：先頭と最後を指定数値(秒)削除する
@@ -48,6 +54,8 @@ author: Hideki Osaka(toriR. Lab)
   - --moving-average, -ma 数値：周波数軸の移動平均（デフォルトで０ポイント）
   - --fit-curve, -fc：ノイズフロア推定のためのフィッティング曲線を使用する
   - --remove-signals, -rs：ノイズフロア推定のための信号のピークをフィッティング曲線で除去する
+  - --peak-floor, -pf 数値：ピーク削除のためのノイズフロアの範囲（デフォルト：50）
+  - --spectrogram, -sp：スペクトログラムの出力
   - --debug, -d：デバッグモード
   - コマンド例）${CMD} -c 1 -l 2000 -h 10000 -t toneset01.txt input.wav
 

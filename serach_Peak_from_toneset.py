@@ -18,17 +18,18 @@ def parse_arguments():
     parser.add_argument('--no-img', '-n', action='store_true', help='スペクトログラムの出力なし')
     parser.add_argument('--toneset', '-t', type=str, help='トーンセットの入っているテキストファイル')
     parser.add_argument('--serch-range', '-sr', type=int, default=50, help='ピークサーチ範囲（デフォルト：50）')
-    parser.add_argument('--peak-floor', '-pf', type=int, default=50, help='ピーク削除のためのノイズフロアの範囲（デフォルト：50）')
     parser.add_argument('--noise-floor', '-nf', type=str, help='トーンセットのノイズフロアファイル指定値。')
     parser.add_argument('--input-audio', '-i', type=str, help='入力音源')
     parser.add_argument('--max', '-mx', type=float, help='ピーク強度の最大値（デフォルト：自動）')
     parser.add_argument('--min', '-mn', type=float, help='ピーク強度の最小値（デフォルト：自動）')
     parser.add_argument('--low-freq', '-lf', type=float, default=0, help='最低周波数（デフォルト：0）')
-    parser.add_argument('--high-freq', '-hf', type=float, default=12000, help='最高周波数（デフォルト：12000）')
+    parser.add_argument('--high-freq', '-hf', type=float, default=20000, help='最高周波数（デフォルト：20000）')
     parser.add_argument('--fft-size', '-fs', type=int, default=2048, help='FFTサイズ（デフォルト：2048）')
     parser.add_argument('--moving-average', '-ma', type=int, default=0, help='ノイズフロア推定のための移動平均ウィンドウサイズ（デフォルト：0）')
     parser.add_argument('--fit-curve', '-fc', action='store_true', help='ノイズフロア推定のためのフィッティング曲線を使用する')
+    parser.add_argument('--peak-floor', '-pf', type=int, default=50, help='ピーク削除のためのノイズフロアの範囲（デフォルト：50）')
     parser.add_argument('--remove-signals', '-rs', action='store_true', help='ノイズフロア推定のための信号のピークをフィッティング曲線で除去する')
+    parser.add_argument('--spectrogram', '-sp', action='store_true', help='スペクトログラムの出力')
     parser.add_argument('--debug', '-d', action='store_true', help='デバッグモード')
 
     return parser.parse_args()
@@ -67,14 +68,17 @@ def calculate_fft(data, sample_rate):
         print(f"FFT size: {args.fft_size}")
     for i in range(num_segments):
         segment = data[i * args.fft_size:(i + 1) * args.fft_size]
-        spectrum = np.abs(fft(segment, n=args.fft_size))
+        spectrum = np.abs(fft(segment, n=args.fft_size)) ** 2  # パワースペクトルに変換
         spectrum_sum += spectrum[:args.fft_size // 2]
     
     # 平均化
     averaged_spectrum = spectrum_sum / num_segments
     
+    # パワースペクトル密度に変換
+    psd = averaged_spectrum / (sample_rate * args.fft_size)
+    
     # dBに変換
-    spectrum_db = 20 * np.log10(averaged_spectrum + np.finfo(float).eps)  # ゼロ除算を防ぐために微小値を加算
+    spectrum_db = 10 * np.log10(psd + np.finfo(float).eps)  # ゼロ除算を防ぐために微小値を加算
     
     # FFTの周波数軸を計算
     freqs = np.fft.fftfreq(args.fft_size, 1/sample_rate)
@@ -123,19 +127,28 @@ def set_japanese_font():
     font_prop = fm.FontProperties(fname=font_path)
     plt.rcParams['font.family'] = font_prop.get_name()
 
+def moving_average_noise_floor(spectrum, window_size):
+    noise_floor_spectrum = apply_moving_average(spectrum, window_size)
+    return noise_floor_spectrum
+
 def plot_spectrum(freqs, spectrum, peaks, noise_floor_spectrum, noise_floor, output_file):
     set_japanese_font()  # 日本語フォントを設定
+    freqs_org=freqs.copy()
+    freq_mask = (freqs >= args.low_freq) & (freqs <= args.high_freq)
+    freqs = freqs[freq_mask]
+    spectrum_org=spectrum.copy()
+    spectrum = spectrum[freq_mask]
     plt.figure()
     plt.plot(freqs, spectrum, 'black', linestyle='-', label='信号スペクトル')
-    # 信号のピークを除去するオプションが指定された場合
-    if args.remove_signals:
-        spectrum_copy = spectrum.copy()
-        noise_floor_spectrum = remove_signal_peaks(spectrum_copy, peaks, freqs, args.peak_floor)
-        plt.plot(freqs, noise_floor_spectrum, 'green', linestyle='--', label='ノイズフロア(ピーク削除)')
     # 移動平均によるノイズフロア推定
     if args.moving_average > 0:
-        noise_floor_spectrum = apply_moving_average(noise_floor_spectrum, args.moving_average)
+        noise_floor_spectrum = moving_average_noise_floor(spectrum_org, args.moving_average)
+        noise_floor_spectrum = noise_floor_spectrum[freq_mask]
         plt.plot(freqs, noise_floor_spectrum, 'orange', linestyle='-', label='ノイズフロア(移動平均)')
+    # 信号のピークを除去するオプションが指定された場合
+    if args.remove_signals:
+        noise_floor_spectrum = remove_signal_peaks(noise_floor_spectrum, peaks, freqs, args.peak_floor)
+        plt.plot(freqs, noise_floor_spectrum, 'green', linestyle='--', label='ノイズフロア(ピーク削除)')
     # ノイズフロアの表示
     if args.noise_floor:
         plt.plot(list(noise_floor.keys()), [v for v in noise_floor.values()], 'orange', linestyle='--', label='ノイズフロア(指定値)')
@@ -189,6 +202,17 @@ def remove_signal_peaks(spectrum, peaks, freqs, search_range):
         spectrum[mask] = np.interp(freqs[mask], [freqs[mask][0], freqs[mask][-1]], [spectrum[mask][0], spectrum[mask][-1]])
     return spectrum
 
+def plot_spectrogram(data, sample_rate, output_file):
+    plt.figure()
+    plt.specgram(data, NFFT=args.fft_size, Fs=sample_rate, cmap='viridis')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Frequency [Hz]')
+    plt.title(os.path.splitext(os.path.basename(output_file))[0])
+    plt.colorbar(label='Intensity [dB]')
+    plt.ylim(args.low_freq, args.high_freq)  # 周波数範囲をオプション指定に合わせる
+    plt.savefig(output_file)
+    plt.close()
+
 def main():
     global args  # ここでグローバル変数として宣言
     args = parse_arguments()  # argsに代入
@@ -208,18 +232,23 @@ def main():
 
     sample_rate, data = process_audio()
     freqs, spectrum = calculate_fft(data, sample_rate)
+    freqs_org=freqs.copy()
     # low_freqとhigh_freqの範囲に周波数を制限
     freq_mask = (freqs >= args.low_freq) & (freqs <= args.high_freq)
     freqs = freqs[freq_mask]
+    spectrum_org=spectrum.copy()
     spectrum = spectrum[freq_mask]
     peaks = find_peaks(freqs, spectrum, toneset, args.serch_range)
     
     # ノイズフロアスペクトルの計算
-    noise_floor_spectrum = spectrum.copy()  # 初期化
+    if args.moving_average > 0:
+        # 移動平均によるノイズフロア推定(データ数が少なくなるのでオリジナルのデータを用いる)
+        noise_floor_spectrum = moving_average_noise_floor(spectrum_org, args.moving_average)
+        noise_floor_spectrum = noise_floor_spectrum[freq_mask]
+    else:
+        noise_floor_spectrum = spectrum.copy()
     if args.remove_signals:
         noise_floor_spectrum = remove_signal_peaks(noise_floor_spectrum, peaks, freqs, args.peak_floor)
-    if args.moving_average > 0:
-        noise_floor_spectrum = apply_moving_average(noise_floor_spectrum, args.moving_average)
     
     # Load noise floor from file if provided, otherwise calculate it
     if args.noise_floor:
@@ -239,7 +268,10 @@ def main():
     if not args.no_img:
         output_file = os.path.splitext(args.input_audio)[0] + ".png"
         if not args.no_img:
-            plot_spectrum(freqs, spectrum, peaks, noise_floor_spectrum, noise_floor, output_file)
+            plot_spectrum(freqs_org, spectrum_org, peaks, noise_floor_spectrum, noise_floor, output_file)
+        if args.spectrogram:
+            spectrogram_output_file = os.path.splitext(args.input_audio)[0] + "_spectrogram.png"
+            plot_spectrogram(data, sample_rate, spectrogram_output_file)
 
 if __name__ == "__main__":
     main()
