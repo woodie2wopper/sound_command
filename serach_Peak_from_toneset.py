@@ -14,7 +14,6 @@ args = None
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='トーンセットのピーク強度とSN比を求める')
-    parser.add_argument('--cut', '-c', type=int, help='先頭と最後を指定数値(秒)削除する')
     parser.add_argument('--no-img', '-n', action='store_true', help='スペクトログラムの出力なし')
     parser.add_argument('--toneset', '-t', type=str, help='トーンセットの入っているテキストファイル')
     parser.add_argument('--serch-range', '-sr', type=int, default=50, help='ピークサーチ範囲（デフォルト：50）')
@@ -27,8 +26,8 @@ def parse_arguments():
     parser.add_argument('--fft-size', '-fs', type=int, default=2048, help='FFTサイズ（デフォルト：2048）')
     parser.add_argument('--moving-average', '-ma', type=int, default=0, help='ノイズフロア推定のための移動平均ウィンドウサイズ（デフォルト：0）')
     parser.add_argument('--fit-curve', '-fc', action='store_true', help='ノイズフロア推定のためのフィッティング曲線を使用する')
-    parser.add_argument('--peak-floor', '-pf', type=int, default=50, help='ピーク削除のためのノイズフロアの範囲（デフォルト：50）')
     parser.add_argument('--remove-signals', '-rs', action='store_true', help='ノイズフロア推定のための信号のピークをフィッティング曲線で除去する')
+    parser.add_argument('--peak-floor', '-pf', type=int, default=50, help='ピーク削除のためのノイズフロアの範囲（デフォルト：50）、---remove-signalsと一緒に指定する。')
     parser.add_argument('--spectrogram', '-sp', action='store_true', help='スペクトログラムの出力')
     parser.add_argument('--debug', '-d', action='store_true', help='デバッグモード')
 
@@ -54,9 +53,6 @@ def load_noise_floor(file_path):
 
 def process_audio():
     sample_rate, data = wavfile.read(args.input_audio)
-    if args.cut:
-        cut_samples = args.cut * sample_rate
-        data = data[cut_samples:-cut_samples]
     return sample_rate, data
 
 def calculate_fft(data, sample_rate):
@@ -145,7 +141,7 @@ def plot_spectrum(freqs, spectrum, peaks, noise_floor_spectrum, noise_floor, out
         noise_floor_spectrum = moving_average_noise_floor(spectrum_org, args.moving_average)
         noise_floor_spectrum = noise_floor_spectrum[freq_mask]
         plt.plot(freqs, noise_floor_spectrum, 'orange', linestyle='-', label='ノイズフロア(移動平均)')
-    # 信号のピークを除去するオプションが指定された場合
+    # 信号のピークを除去するオプ��ョンが指定された場合
     if args.remove_signals:
         noise_floor_spectrum = remove_signal_peaks(noise_floor_spectrum, peaks, freqs, args.peak_floor)
         plt.plot(freqs, noise_floor_spectrum, 'green', linestyle='--', label='ノイズフロア(ピーク削除)')
