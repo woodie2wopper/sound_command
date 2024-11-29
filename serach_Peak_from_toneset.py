@@ -28,7 +28,7 @@ def parse_arguments():
     parser.add_argument('--overlap', '-ov', type=int, default=0, help='オーバーラップ率（デフォルト：0）')
     parser.add_argument('--moving-average', '-ma', type=int, default=0, help='ノイズフロア推定のための移動平均ウィンドウサイズ（デフォルト：0）')
     parser.add_argument('--fit-curve', '-fc', action='store_true', help='ノイズフロア推定のためのフィッティング曲線を使用する')
-    parser.add_argument('--input-fit-curve-coeff', '-ifc', type=str, help='ノイズフロア推定のためのフィッティング曲線の係数ファイル')
+    parser.add_argument('--input-fit-curve-coeff', '-ifc', type=str, help='ノイズフロア推定のためのフィッティング曲線の２次係数ファイル')
     parser.add_argument('--remove-signals', '-rs', action='store_true', help='ノイズフロア推定のための信号のピークをフィッティング曲線で除去する')
     parser.add_argument('--peak-floor', '-pf', type=int, default=50, help='ピーク削除のためのノイズフロアの範囲（デフォルト：50）、---remove-signalsと一緒に指定する。')
     parser.add_argument('--spectrogram', '-sp', action='store_true', help='スペクトログラムの出力')
@@ -120,7 +120,16 @@ def calculate_snr(peaks, noise_floor, search_range):
             else:
                 snr = float('nan')  # 例としてNaNを使用
                 print(f"Warning: No suitable frequency found for {freq} within search range.")
-        results.append((closest_freq, intensity, snr, noise_floor[closest_freq]))
+        
+        # ifcオプションが指定されている場合の処理
+        if args.input_fit_curve_coeff:
+            coefficients = load_fit_curve_coeff(args.input_fit_curve_coeff)
+            fitted_noise_floor = np.polyval(coefficients, freq)
+            snr = intensity - fitted_noise_floor
+            if args.debug:
+                print(f"Fitted noise floor for {freq}: {fitted_noise_floor}, SNR: {snr}")
+
+        results.append((closest_freq, intensity, snr, noise_floor.get(closest_freq, float('nan'))))
     return results
 
 def set_japanese_font():
@@ -275,7 +284,7 @@ def main():
     # Write results to a file with header
     output_file = os.path.splitext(args.input_audio)[0] + ".txt"
     with open(output_file, 'w') as f:
-        f.write("# Frequency[Hz],Intensity [dB],Noise floor [dB],Signal-to-Noise Ratio [dB]\n")  # Add header
+        f.write("# Frequency [Hz],Intensity [dB],Noise_floor [dB],SNR [dB]\n")  # Add header
         for freq, intensity, snr, noise_floor_value in results:  # 変数名を変更
             f.write(f"{freq},{intensity},{noise_floor_value},{snr}\n")  # 変数名を変更
     

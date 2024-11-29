@@ -11,11 +11,11 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='マイクパターンをプロットする')
     parser.add_argument('--input-file', '-i', type=str, help='ピーク強度とSN比の表のファイル')
     parser.add_argument('--output-file', '-o', type=str, default='plot_microphone_pattern.png', help='出力ファイル名')
-    parser.add_argument('--max', '-mx', type=float, help='プロットする最大値')
+    parser.add_argument('--max', '-mx', type=float, default=100, help='プロットする最大値')
     parser.add_argument('--min', '-mn', type=float, default=0, help='プロットする最小値')
-    parser.add_argument('--column', '-c', choices=['p', 's'], default='p', help='ピーク強度かSN比か')
-    parser.add_argument('--max-freq', '-mxf', type=float, help='プロットする最大周波数')
-    parser.add_argument('--min-freq', '-mnf', type=float, help='プロットする最小周波数')
+    parser.add_argument('--column', '-c', choices=['p', 's'], default='s', help='ピーク強度かSN比か')
+    parser.add_argument('--high-freq', '-hf', type=float, default=22000, help='プロットする最大周波数')
+    parser.add_argument('--low-freq', '-lf', type=float, default=0, help='プロットする最小周波数')
     parser.add_argument('--toneset', '-t', type=str, help='トーンセットの周波数のマイクパターンをプロットする')
     parser.add_argument('--serch-range', '-sr', type=int, default=50, help='ピークサーチ範囲（デフォルト：50）')
     parser.add_argument('--debug', '-d', action='store_true', help='デバッグ情報を出力する')
@@ -25,7 +25,7 @@ def load_data(file_path, column, toneset_file=None, search_range=50):
     angles = []
     freqs = set()  # 周波数を一意にするためにセットを使用
     values_dict = {}  # 角度をキーにして値を保存する辞書
-    column_index = 4 if column == 's' else 2  # 'p'の場合は4列目、's'の場合は3列目を選択
+    column_index = 4 if column == 'p' else 2  # 'p'の場合は4列目、's'の場合は3列目を選択
 
     # トーンセットファイルから周波数を読み込む
     toneset_freqs = set()
@@ -64,18 +64,35 @@ def load_data(file_path, column, toneset_file=None, search_range=50):
     angles = np.array(list(values_dict.keys()))
     freqs = np.array(sorted(freqs))
     values = np.array([values_dict[angle] for angle in angles])
+    # デバッグモードの場合、読み込んだデータの一覧を表示
+    if args.debug:
+        print("\n読み込んだデータの一覧:")
+        print(f"角度: {angles}")
+        print(f"周波数: {freqs}")
+        print(f"値の形状: {values.shape}")
+        print("各角度での値:")
+        for i, angle in enumerate(angles):
+            print(f"角度 {angle}度: {values[i]}")
+    # デバッグモードの場合、周波数毎の各角度の値を表示
+    if args.debug:
+        print("\n周波数毎の各角度の値:")
+        for i, freq in enumerate(freqs):
+            print(f"\n周波数 {freq}Hz での値:")
+            for j, angle in enumerate(angles):
+                print(f"角度 {angle}度: {values[j][i]}")
 
     return angles, freqs, values
 
-def plot_polar(angles, freqs, values, max_value):
+def plot_polar(angles, freqs, values ):
     # 日本語フォントを設定
     font_path = '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc'  # ヒラギノ角ゴシックのパス
     font_prop = font_manager.FontProperties(fname=font_path)
     
     output_file = args.output_file
     min_value = args.min
-    min_freq = args.min_freq
-    max_freq = args.max_freq
+    max_value = args.max
+    low_freq = args.low_freq
+    high_freq = args.high_freq
 
     plt.figure()
     ax = plt.subplot(111, polar=True)
@@ -83,25 +100,25 @@ def plot_polar(angles, freqs, values, max_value):
     ax.set_theta_direction(-1)
     ax.set_theta_zero_location('N')
     
-    # 色のリストを用意
-    colors = plt.cm.viridis(np.linspace(0, 1, len(freqs)))
+    # 色のリストを用意 (虹色のカラーマップを使用)
+    colors = plt.cm.rainbow(np.linspace(0, 1, len(freqs)))
     
     # デバッグ情報を出力
     if args.debug:
-        print(f"freqs: {len(freqs)}, values shape: {values.shape}")
+        print(f"周波数の数: {len(freqs)}, マイクパターンの数: {values.shape[1]}")
     
     for i, freq in enumerate(freqs):
         # 指定された周波数範囲内のみプロット
-        if (min_freq is None or freq >= min_freq) and (max_freq is None or freq <= max_freq):
+        if (low_freq is None or freq >= low_freq) and (high_freq is None or freq <= high_freq):
             if i < values.shape[1]:  # インデックスが範囲内か確認
-                ax.plot(np.radians(angles), values[:, i], color=colors[i], label=f'{int(round(freq))} Hz')  # 周波数を整数に変換
+                ax.plot(np.radians(angles), values[:, i], color=colors[i], label=f'{int(freq)} Hz')
             else:
                 print(f"Skipping index {i} as it is out of bounds for values with shape {values.shape}")
     
     ax.legend(prop=font_prop)  # 凡例にもフォントを適用
     # 入力ファイルからファイルボディを取得
-    input_file_body = os.path.splitext(os.path.basename(args.input_file))[0]
-    ax.set_title(f'マイクパターン {input_file_body}', fontproperties=font_prop)  # タイトルにフォントを適用
+    output_file_body = os.path.splitext(os.path.basename(args.output_file))[0]
+    ax.set_title(f'マイクパターン {output_file_body}', fontproperties=font_prop)  # タイトルにフォントを適用
     plt.savefig(output_file)
     plt.close()
 
@@ -114,8 +131,7 @@ def main():
         parser.print_help()  # ヘルプメッセージを表示
         return  # プログラムを終了
     angles, freqs, values = load_data(args.input_file, args.column, args.toneset, args.serch_range)
-    max_value = args.max if args.max is not None else np.max(values)
-    plot_polar(angles, freqs, values, max_value)
+    plot_polar(angles, freqs, values)
 
 if __name__ == "__main__":
     main() 

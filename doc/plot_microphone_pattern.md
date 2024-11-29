@@ -43,5 +43,7 @@
 # tonesetの周波数の録音ピーク強度とSNRを角度毎に出力する
 $ ls *deg*WAV | xargs -I@ serach_Peak_from_toneset.py -t toneset -ia @ -nf background_noise.txt -sr 10
 # ファイル名から角度を取得してピーク強度とSN比を出力する
-$  ls *deg*_cut.txt | xargs -I@ awk -F, '!/^#/{match(FILENAME, /^[0-9]+/);deg = substr(FILENAME, RSTART, RLENGTH); printf "%d, %s, %s, %s , %s\n",deg,$1,$2,$3,$4}' @ |sort -n >| microphone_pattern.txt 
+$  ls *deg*_cut.txt | xargs -I@ awk -F, '!/^#/{match(FILENAME, /^[0-9]+/);deg = substr(FILENAME, RSTART, RLENGTH); printf "%d,%s,%s,%s,%s\n",deg,$1,$2,$3,$4}' @ |sort -n >| microphone_pattern.txt 
+# マイクパターンをプロットする
+$ ./plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern.png -t toneset -sr 10
 ```
