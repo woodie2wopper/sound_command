@@ -13,7 +13,8 @@ import os
 args = None
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='トーンセットのピーク強度とSN比を求める')
+    parser = argparse.ArgumentParser(description='トーンセットのピーク強度とSN比を求める',
+                                   epilog='使用例: serach_Peak_from_toneset.py -t toneset -i 45_deg_ZOOM0293_cut.WAV -sp -fc -rs -pf 100 -lf 3000 -hf 18000 -d -fs 8096 -ov 50')
     parser.add_argument('--no-img', '-n', action='store_true', help='スペクトログラムの出力なし')
     parser.add_argument('--toneset', '-t', type=str, help='トーンセットの入っているテキストファイル')
     parser.add_argument('--serch-range', '-sr', type=int, default=50, help='ピークサーチ範囲（デフォルト：50）')
@@ -24,6 +25,7 @@ def parse_arguments():
     parser.add_argument('--low-freq', '-lf', type=float, default=0, help='最低周波数（デフォルト：0）')
     parser.add_argument('--high-freq', '-hf', type=float, default=20000, help='最高周波数（デフォルト：20000）')
     parser.add_argument('--fft-size', '-fs', type=int, default=2048, help='FFTサイズ（デフォルト：2048）')
+    parser.add_argument('--overlap', '-ov', type=int, default=0, help='オーバーラップ率（デフォルト：0）')
     parser.add_argument('--moving-average', '-ma', type=int, default=0, help='ノイズフロア推定のための移動平均ウィンドウサイズ（デフォルト：0）')
     parser.add_argument('--fit-curve', '-fc', action='store_true', help='ノイズフロア推定のためのフィッティング曲線を使用する')
     parser.add_argument('--remove-signals', '-rs', action='store_true', help='ノイズフロア推定のための信号のピークをフィッティング曲線で除去する')
@@ -35,7 +37,7 @@ def parse_arguments():
 
 def load_toneset(file_path):
     with open(file_path, 'r') as file:
-        return [int(line.strip()) for line in file]
+        return [int(line.strip()) for line in file if line.strip()]
 
 def load_noise_floor(file_path):
     noise_floor = {}
@@ -56,14 +58,17 @@ def process_audio():
     return sample_rate, data
 
 def calculate_fft(data, sample_rate):
-    num_segments = len(data) // args.fft_size
+    step_size = int(args.fft_size * (1 - args.overlap / 100))
+    num_segments = (len(data) - args.fft_size) // step_size + 1
     spectrum_sum = np.zeros(args.fft_size // 2)
     
     if args.debug:
         print(f"Number of segments: {num_segments}")
         print(f"FFT size: {args.fft_size}")
+        print(f"Step size: {step_size}")
     for i in range(num_segments):
-        segment = data[i * args.fft_size:(i + 1) * args.fft_size]
+        start_index = i * step_size
+        segment = data[start_index:start_index + args.fft_size]
         spectrum = np.abs(fft(segment, n=args.fft_size)) ** 2  # パワースペクトルに変換
         spectrum_sum += spectrum[:args.fft_size // 2]
     
@@ -141,7 +146,7 @@ def plot_spectrum(freqs, spectrum, peaks, noise_floor_spectrum, noise_floor, out
         noise_floor_spectrum = moving_average_noise_floor(spectrum_org, args.moving_average)
         noise_floor_spectrum = noise_floor_spectrum[freq_mask]
         plt.plot(freqs, noise_floor_spectrum, 'orange', linestyle='-', label='ノイズフロア(移動平均)')
-    # 信号のピークを除去するオプ��ョンが指定された場合
+    # 信号のピークを除去するオプョンが指定された場合
     if args.remove_signals:
         noise_floor_spectrum = remove_signal_peaks(noise_floor_spectrum, peaks, freqs, args.peak_floor)
         plt.plot(freqs, noise_floor_spectrum, 'green', linestyle='--', label='ノイズフロア(ピーク削除)')

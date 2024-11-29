@@ -1,4 +1,4 @@
-# README_serach_Peak_from_toneset
+# serach_Peak_from_toneset.pyの説明書
 
 ## コマンド名：serach_Peak_from_toneset.py
 
@@ -55,6 +55,7 @@ author: Hideki Osaka(toriR. Lab)
   - --remove-signals, -rs：ノイズフロア推定のための信号のピークをフィッティング曲線で除去する
   - --peak-floor, -pf 数値：ピーク削除のためのノイズフロアの範囲（デフォルト：50）
   - --spectrogram, -sp：スペクトログラムの出力
+  - --overlap, -ov 数値：オーバーラップ率（デフォルト：0） 
   - --debug, -d：デバッグモード
   - コマンド例）${CMD} -c 1 -l 2000 -h 10000 -t toneset01.txt input.wav
 
