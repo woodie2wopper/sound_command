@@ -23,6 +23,10 @@
   - --max, -mx 数値: プロットする最大値（デフォルトは最大値）
   - --min, -mn 数値: プロットする最小値（デフォルトは0）
   - --column, -c: ピーク強度かSN比か（デフォルトはp）
+  - --toneset, -t: トーンセットの周波数のマイクパターンをプロットする
+  - --serch-range, -sr: ピークサーチ範囲（デフォルト：50）
+  - --debug, -d: デバッグ情報を出力する
+
 - 出力
   - 極座標でプロットする
   - 0度はXY平面のY軸方向を極座標の0度とする。
@@ -39,5 +43,5 @@
 # tonesetの周波数の録音ピーク強度とSNRを角度毎に出力する
 $ ls *deg*WAV | xargs -I@ serach_Peak_from_toneset.py -t toneset -ia @ -nf background_noise.txt -sr 10
 # ファイル名から角度を取得してピーク強度とSN比を出力する
-$ ls *deg*txt | xargs -I@ awk -F, '!/^#/{match(FILENAME, /^[0-9]+/);deg = substr(FILENAME, RSTART, RLENGTH); printf "%d, %s, %s, %s\n",deg,$1,$2,$3}' @ | sort -n >| microphone_pattern.txt
+$  ls *deg*_cut.txt | xargs -I@ awk -F, '!/^#/{match(FILENAME, /^[0-9]+/);deg = substr(FILENAME, RSTART, RLENGTH); printf "%d, %s, %s, %s , %s\n",deg,$1,$2,$3,$4}' @ |sort -n >| microphone_pattern.txt 
 ```
