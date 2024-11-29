@@ -52,6 +52,7 @@ author: Hideki Osaka(toriR. Lab)
   - --fft-size, -fs 数値：FFTサイズ（デフォルト：2048）
   - --moving-average, -ma 数値：周波数軸の移動平均（デフォルトで０ポイント）
   - --fit-curve, -fc：ノイズフロア推定のためのフィッティング曲線を使用する
+  - --input-fit-curve-coeff, -ifc ファイル：ノイズフロア推定のためのフィッティング曲線の係数
   - --remove-signals, -rs：ノイズフロア推定のための信号のピークをフィッティング曲線で除去する
   - --peak-floor, -pf 数値：ピーク削除のためのノイズフロアの範囲（デフォルト：50）
   - --spectrogram, -sp：スペクトログラムの出力

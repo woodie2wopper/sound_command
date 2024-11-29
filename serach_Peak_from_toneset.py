@@ -28,6 +28,7 @@ def parse_arguments():
     parser.add_argument('--overlap', '-ov', type=int, default=0, help='オーバーラップ率（デフォルト：0）')
     parser.add_argument('--moving-average', '-ma', type=int, default=0, help='ノイズフロア推定のための移動平均ウィンドウサイズ（デフォルト：0）')
     parser.add_argument('--fit-curve', '-fc', action='store_true', help='ノイズフロア推定のためのフィッティング曲線を使用する')
+    parser.add_argument('--input-fit-curve-coeff', '-ifc', type=str, help='ノイズフロア推定のためのフィッティング曲線の係数ファイル')
     parser.add_argument('--remove-signals', '-rs', action='store_true', help='ノイズフロア推定のための信号のピークをフィッティング曲線で除去する')
     parser.add_argument('--peak-floor', '-pf', type=int, default=50, help='ピーク削除のためのノイズフロアの範囲（デフォルト：50）、---remove-signalsと一緒に指定する。')
     parser.add_argument('--spectrogram', '-sp', action='store_true', help='スペクトログラムの出力')
@@ -156,7 +157,15 @@ def plot_spectrum(freqs, spectrum, peaks, noise_floor_spectrum, noise_floor, out
     # フィッティング曲線の表示
     if args.fit_curve:
         # フィッティング曲線の計算
-        coefficients = fit_quadratic_least_squares(freqs, noise_floor_spectrum)
+        if args.input_fit_curve_coeff:
+            coefficients = load_fit_curve_coeff(args.input_fit_curve_coeff)
+        else:
+            coefficients = fit_quadratic_least_squares(freqs, noise_floor_spectrum)
+            # 係数をファイル出力
+            coeff_file = os.path.splitext(output_file)[0] + '_fit_coeff.txt'
+            np.savetxt(coeff_file, coefficients, fmt='%.6e')
+            if args.debug:
+                print(f"フィッティング係数をファイル {coeff_file} に保存しました")
         fitted_curve = np.polyval(coefficients, freqs)
         # dBに変換して表示
         plt.plot(freqs, fitted_curve, 'blue', linestyle='--', label='フィッティング曲線')
@@ -214,6 +223,10 @@ def plot_spectrogram(data, sample_rate, output_file):
     plt.savefig(output_file)
     plt.close()
 
+def load_fit_curve_coeff(file_path):
+    with open(file_path, 'r') as file:
+        return [float(coeff.strip()) for coeff in file if coeff.strip()]
+
 def main():
     global args  # ここでグローバル変数として宣言
     args = parse_arguments()  # argsに代入
@@ -262,9 +275,9 @@ def main():
     # Write results to a file with header
     output_file = os.path.splitext(args.input_audio)[0] + ".txt"
     with open(output_file, 'w') as f:
-        f.write("# Frequency [Hz], Intensity [dB], Noise floor [dB], Signal-to-Noise Ratio [dB]\n")  # Add header
+        f.write("# Frequency[Hz],Intensity [dB],Noise floor [dB],Signal-to-Noise Ratio [dB]\n")  # Add header
         for freq, intensity, snr, noise_floor_value in results:  # 変数名を変更
-            f.write(f"{freq}, {intensity}, {noise_floor_value}, {snr}\n")  # 変数名を変更
+            f.write(f"{freq},{intensity},{noise_floor_value},{snr}\n")  # 変数名を変更
     
     if not args.no_img:
         output_file = os.path.splitext(args.input_audio)[0] + ".png"
