@@ -41,9 +41,11 @@
 - データ準備の例：
 ```bash
 # tonesetの周波数の録音ピーク強度とSNRを角度毎に出力する
-$ ls *deg*WAV | xargs -I@ serach_Peak_from_toneset.py -t toneset -ia @ -nf background_noise.txt -sr 10
+$  ls *deg*WAV | xargs -I@ ~/GitHub/sound_command/searach_Peak_from_toneset.py -t toneset -i @ -lf 2500 -hf 22000 -fc -ifc noise_cut_fit_coeff.txt -mx 45 -mn -20
 # ファイル名から角度を取得してピーク強度とSN比を出力する
-$  ls *deg*_cut.txt | xargs -I@ awk -F, '!/^#/{match(FILENAME, /^[0-9]+/);deg = substr(FILENAME, RSTART, RLENGTH); printf "%d,%s,%s,%s,%s\n",deg,$1,$2,$3,$4}' @ |sort -n >| microphone_pattern.txt 
-# マイクパターンをプロットする
-$ ./plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern.png -t toneset -sr 10
+$ ls *deg*_cut.txt | xargs -I@ awk -F, '!/^#/{match(FILENAME, /^[0-9]+/);deg = substr(FILENAME, RSTART, RLENGTH); printf "%d,%s,%s,%s,%s\n",deg,$1,$2,$3,$4}' @ |sort -t, -k1,1n >| microphone_pattern.txt 
+# SNRのマイクパターン
+$ ~/GitHub/sound_command/plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern_SNR.png --debug -t toneset -mx 45 -mn 0 -c s
+# Peakのマイクパターン
+$  ~/GitHub/sound_command/plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern_Peak.png --debug -t toneset -mx 50 -mn 0 -c p$  ~/GitHub/sound_command/plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern_Peak.png --debug -t toneset -mx 50 -mn 0 -c p
 ```
