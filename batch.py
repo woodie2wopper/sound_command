@@ -33,6 +33,8 @@ def parse_arguments():
     parser.add_argument('--fit-curve', '-fc', action='store_true', help='ノイズフロア推定のためのフィッティング曲線を使用する')
     parser.add_argument('--remove-signals', '-rs', action='store_true', help='ノイズフロア推定のための信号のピークをフィッティング線で除去する')
     parser.add_argument('--peak-floor', '-pf', type=int, default=50, help='ピーク削除のためのノイズフロアの範囲')
+    parser.add_argument('--debug', '-d', action='store_true', help='デバッグ情報を出力する')
+    parser.add_argument('--yes', '-y', action='store_true', help='ユーザーの入力を省略する')
     return parser.parse_args()
 
 def is_stereo(file_path):
@@ -74,6 +76,7 @@ def determine_noise_floor(input_file):
         f"-fc "
         f"-rs "
         f"-pf {args.peak_floor} "
+        f"{'-d' if args.debug else ''}"
     )
     run_subprocess(command)
 
@@ -90,7 +93,8 @@ def search_peak_from_toneset(file):
         f"{'-fc' if args.fit_curve else ''} "
         f"{'-rs' if args.remove_signals else ''} "
         f"-pf {args.peak_floor} "
-        f"-ifc {fit_curve_coeff_file}"
+        f"-ifc {fit_curve_coeff_file} "
+        f"{'-d' if args.debug else ''}"
     )
     run_subprocess(command)
 
@@ -135,9 +139,12 @@ def display_and_confirm_noise_floor(noise_file):
     # Windowsの場合は以下を使用
     # subprocess.run(["start", noise_image_path], shell=True)
     
-    # ユーザーの入力を待つ
+    # args.yesがTrueの場合、ユーザーの入力を省略
     while True:
-        answer = input("これでいいですか？(y/n/q): ").lower()
+        if args.yes:
+            answer = "y"
+        else:
+            answer = input("これでいいですか？(y/n/q): ").lower()
         if answer == "n":
             # NOの場合、再度ノイズフロアを決定
             determine_noise_floor(noise_file)
