@@ -43,6 +43,19 @@ def load_toneset(file_path):
         return [int(line.strip()) for line in file if line.strip()]
 
 def load_noise_floor(file_path):
+    """
+    ノイズフロアのデータをファイルから読み込みます。
+
+    Parameters:
+    file_path (str): ノイズフロアデータが格納されているファイルのパス
+                     ファイルは以下のフォーマットである必要があります:
+                     周波数,線形値,dB値
+                     コメント行は#で始まります
+
+    Returns:
+    dict: 周波数をキー、dB値を値とする辞書
+          例: {1000: -60.0, 2000: -65.2, ...}
+    """
     noise_floor = {}
     with open(file_path, 'r') as file:
         for line in file:
@@ -106,6 +119,32 @@ def find_peaks(freqs, spectrum, toneset, search_range):
     return peaks
 
 def calculate_snr(peaks, noise_floor, search_range):
+    """
+    ピーク周波数とノイズフロアからSN比を計算する関数
+
+    Parameters
+    ----------
+    peaks : list of tuple
+        (周波数, 強度)のタプルのリスト。find_peaks()関数の戻り値。
+    noise_floor : dict
+        周波数をキー、ノイズフロアレベルを値とする辞書
+    search_range : int
+        ノイズフロアを探索する周波数範囲(Hz)
+
+    Returns
+    -------
+    list of tuple
+        (周波数, 強度, SN比, ノイズフロア)のタプルのリスト
+        - 周波数: 最も近いノイズフロアの周波数(Hz)
+        - 強度: ピーク強度(dB)
+        - SN比: ピーク強度とノイズフロアの差分(dB)
+        - ノイズフロア: 対応するノイズフロアレベル(dB)。見つからない場合はNaN
+
+    Notes
+    -----
+    - args.input_fit_curve_coeffが指定されている場合は、フィッティング曲線からノイズフロアを計算
+    - args.debugが指定されている場合は、デバッグ情報を出力
+    """
     results = []
     for freq, intensity in peaks:
         # noise_floorが空でないか確認
@@ -137,7 +176,6 @@ def calculate_snr(peaks, noise_floor, search_range):
 
         results.append((closest_freq, intensity, snr, noise_floor.get(closest_freq, float('nan'))))
     return results
-
 def set_japanese_font():
     # 日本語フォントを指定
     font_path = '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc'  # ヒラギノ角ゴシックのパス
