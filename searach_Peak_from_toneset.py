@@ -11,10 +11,11 @@ import os
 
 # グローバル変数としてargsを定義
 args = None
+FIT_CURVE_COEFF_FILENAME = "_fit_coeff.txt"
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='トーンセットのピーク強度とSN比を求める',
-                                   epilog='使用例: serach_Peak_from_toneset.py -t toneset -i 45_deg_ZOOM0293_cut.WAV -sp -fc -rs -pf 100 -lf 3000 -hf 18000 -d -fs 8096 -ov 50')
+                                   epilog='使用例: serach_Peak_from_toneset.py -t toneset -i 45_deg_ZOOM0293_cut.WAV -sp -fc -rs -pf 100 -lf 3000 -hf 18000 -d -fs 8196 -ov 50')
     parser.add_argument('--no-img', '-n', action='store_true', help='スペクトログラムの出力なし')
     parser.add_argument('--toneset', '-t', type=str, help='トーンセットの入っているテキストファイル')
     parser.add_argument('--serch-range', '-sr', type=int, default=50, help='ピークサーチ範囲（デフォルト：50）')
@@ -33,6 +34,7 @@ def parse_arguments():
     parser.add_argument('--peak-floor', '-pf', type=int, default=50, help='ピーク削除のためのノイズフロアの範囲（デフォルト：50）、---remove-signalsと一緒に指定する。')
     parser.add_argument('--spectrogram', '-sp', action='store_true', help='スペクトログラムの出力')
     parser.add_argument('--debug', '-d', action='store_true', help='デバッグモード')
+    parser.add_argument('--stereo', '-st', action='store_true', help='ステレオファイルを自動的に左右に分割して処理')
 
     return parser.parse_args()
 
@@ -56,7 +58,11 @@ def load_noise_floor(file_path):
 
 def process_audio():
     sample_rate, data = wavfile.read(args.input_audio)
-    return sample_rate, data
+    if data.ndim == 2:  # ステレオの場合
+        left_channel = data[:, 0]
+        right_channel = data[:, 1]
+        return sample_rate, left_channel, right_channel
+    return sample_rate, data, None
 
 def calculate_fft(data, sample_rate):
     step_size = int(args.fft_size * (1 - args.overlap / 100))
@@ -121,7 +127,7 @@ def calculate_snr(peaks, noise_floor, search_range):
                 snr = float('nan')  # 例としてNaNを使用
                 print(f"Warning: No suitable frequency found for {freq} within search range.")
         
-        # ifcオプションが指定されている場合の処理
+        # ifc オプションが指定されている場合の処理
         if args.input_fit_curve_coeff:
             coefficients = load_fit_curve_coeff(args.input_fit_curve_coeff)
             fitted_noise_floor = np.polyval(coefficients, freq)
@@ -171,7 +177,7 @@ def plot_spectrum(freqs, spectrum, peaks, noise_floor_spectrum, noise_floor, out
         else:
             coefficients = fit_quadratic_least_squares(freqs, noise_floor_spectrum)
             # 係数をファイル出力
-            coeff_file = os.path.splitext(output_file)[0] + '_fit_coeff.txt'
+            coeff_file = os.path.splitext(output_file)[0] + FIT_CURVE_COEFF_FILENAME
             np.savetxt(coeff_file, coefficients, fmt='%.6e')
             if args.debug:
                 print(f"フィッティング係数をファイル {coeff_file} に保存しました")
@@ -237,10 +243,9 @@ def load_fit_curve_coeff(file_path):
         return [float(coeff.strip()) for coeff in file if coeff.strip()]
 
 def main():
-    global args  # ここでグローバル変数として宣言
-    args = parse_arguments()  # argsに代入
+    global args
+    args = parse_arguments()
     
-    # Check if input audio is provided
     if not args.input_audio:
         print("オーディオファイルが指定されていません。")
         parser = argparse.ArgumentParser(description='トーンセットのピーク強度とSN比を求める')
@@ -249,52 +254,55 @@ def main():
     
     toneset = load_toneset(args.toneset) if args.toneset else [100, 800, 1000, 3400, 4800, 5800, 6400, 7800, 9000, 9400, 9500]
 
-    # トーンセットを出力する
     if args.debug:
         print(f"Toneset: {toneset}")
 
-    sample_rate, data = process_audio()
-    freqs, spectrum = calculate_fft(data, sample_rate)
-    freqs_org=freqs.copy()
-    # low_freqとhigh_freqの範囲に周波数を制限
-    freq_mask = (freqs >= args.low_freq) & (freqs <= args.high_freq)
-    freqs = freqs[freq_mask]
-    spectrum_org=spectrum.copy()
-    spectrum = spectrum[freq_mask]
-    peaks = find_peaks(freqs, spectrum, toneset, args.serch_range)
-    
-    # ノイズフロアスペクトルの計算
-    if args.moving_average > 0:
-        # 移動平均によるノイズフロア推定(データ数が少なくなるのでオリジナルのデータを用いる)
-        noise_floor_spectrum = moving_average_noise_floor(spectrum_org, args.moving_average)
-        noise_floor_spectrum = noise_floor_spectrum[freq_mask]
-    else:
-        noise_floor_spectrum = spectrum.copy()
-    if args.remove_signals:
-        noise_floor_spectrum = remove_signal_peaks(noise_floor_spectrum, peaks, freqs, args.peak_floor)
-    
-    # Load noise floor from file if provided, otherwise calculate it
-    if args.noise_floor:
-        noise_floor = load_noise_floor(args.noise_floor)
-    else:
-        noise_floor = {int(freq): noise_floor_spectrum[i] for i, freq in enumerate(freqs)}
-    
-    results = calculate_snr(peaks, noise_floor, args.serch_range)
-    
-    # Write results to a file with header
-    output_file = os.path.splitext(args.input_audio)[0] + ".txt"
-    with open(output_file, 'w') as f:
-        f.write("# Frequency [Hz],Intensity [dB],Noise_floor [dB],SNR [dB]\n")  # Add header
-        for freq, intensity, snr, noise_floor_value in results:  # 変数名を変更
-            f.write(f"{freq},{intensity},{noise_floor_value},{snr}\n")  # 変数名を変更
-    
-    if not args.no_img:
-        output_file = os.path.splitext(args.input_audio)[0] + ".png"
+    sample_rate, left_data, right_data = process_audio()
+
+    # モノラルかステレオかを判定
+    is_stereo = right_data is not None
+
+    for channel, data in zip(['_left', '_right'], [left_data, right_data]):
+        if data is None:
+            continue
+
+        freqs, spectrum = calculate_fft(data, sample_rate)
+        freqs_org = freqs.copy()
+        freq_mask = (freqs >= args.low_freq) & (freqs <= args.high_freq)
+        freqs = freqs[freq_mask]
+        spectrum_org = spectrum.copy()
+        spectrum = spectrum[freq_mask]
+        peaks = find_peaks(freqs, spectrum, toneset, args.serch_range)
+        
+        if args.moving_average > 0:
+            noise_floor_spectrum = moving_average_noise_floor(spectrum_org, args.moving_average)
+            noise_floor_spectrum = noise_floor_spectrum[freq_mask]
+        else:
+            noise_floor_spectrum = spectrum.copy()
+        if args.remove_signals:
+            noise_floor_spectrum = remove_signal_peaks(noise_floor_spectrum, peaks, freqs, args.peak_floor)
+        
+        if args.noise_floor:
+            noise_floor = load_noise_floor(args.noise_floor)
+        else:
+            noise_floor = {int(freq): noise_floor_spectrum[i] for i, freq in enumerate(freqs)}
+        
+        results = calculate_snr(peaks, noise_floor, args.serch_range)
+        
+        # モノラルの場合、出力ファイル名にチャネル名を追加しない
+        output_file_suffix = channel if is_stereo else ""
+        output_file = os.path.splitext(args.input_audio)[0] + output_file_suffix + ".txt"
+        with open(output_file, 'w') as f:
+            f.write("# Frequency [Hz],Intensity [dB],Noise_floor [dB],SNR [dB]\n")
+            for freq, intensity, snr, noise_floor_value in results:
+                f.write(f"{freq},{intensity},{noise_floor_value},{snr}\n")
+        
         if not args.no_img:
+            output_file = os.path.splitext(args.input_audio)[0] + output_file_suffix + ".png"
             plot_spectrum(freqs_org, spectrum_org, peaks, noise_floor_spectrum, noise_floor, output_file)
-        if args.spectrogram:
-            spectrogram_output_file = os.path.splitext(args.input_audio)[0] + "_spectrogram.png"
-            plot_spectrogram(data, sample_rate, spectrogram_output_file)
+            if args.spectrogram:
+                spectrogram_output_file = os.path.splitext(args.input_audio)[0] + output_file_suffix + "_spectrogram.png"
+                plot_spectrogram(data, sample_rate, spectrogram_output_file)
 
 if __name__ == "__main__":
     main()
