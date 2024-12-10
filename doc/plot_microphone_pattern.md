@@ -47,5 +47,5 @@ $ ls *deg*_cut.txt | xargs -I@ awk -F, '!/^#/{match(FILENAME, /^[0-9]+/);deg = s
 # SNRのマイクパターン
 $ ~/GitHub/sound_command/plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern_SNR.png --debug -t toneset -mx 45 -mn 0 -c s
 # Peakのマイクパターン
-$  ~/GitHub/sound_command/plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern_Peak.png --debug -t toneset -mx 50 -mn 0 -c p$  ~/GitHub/sound_command/plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern_Peak.png --debug -t toneset -mx 50 -mn 0 -c p
+$  ~/GitHub/sound_command/plot_microphone_pattern.py -i microphone_pattern.txt -o plot_microphone_pattern_Peak.png --debug -t toneset -mx 50 -mn 0 -c p
 ```
