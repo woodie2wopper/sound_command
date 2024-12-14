@@ -50,6 +50,17 @@ def create_histogram_data(data):
 
     # 時間毎のtype別個数を集計
     hourly_counts = data.groupby([data['Begin Clock Time'].dt.hour, 'type']).size().unstack(fill_value=0)
+    # 18時から翌6時までの全時間帯を含むインデックスを作成
+    start_hour = pd.to_datetime(args.start_time, format='%H:%M').hour
+    end_hour = pd.to_datetime(args.end_time, format='%H:%M').hour
+    
+    if start_hour < end_hour:
+        all_hours = list(range(start_hour, end_hour + 1))
+    else:
+        all_hours = list(range(start_hour, 24)) + list(range(0, end_hour + 1))
+        
+    # 存在しない時間帯のデータを0で補完
+    hourly_counts = hourly_counts.reindex(all_hours, fill_value=0)
 
     return hourly_counts
 
@@ -69,8 +80,10 @@ def main():
     
     # ヒストグラムデータを出力
     if histogram_data is not None and not histogram_data.empty:
-        print(histogram_data)  # デバッグ用に出力を確認
+        if args.debug:
+            print(histogram_data)  # デバッグ用に出力を確認
         histogram_data.to_csv(args.output)
+        print(f"ヒストグラムデータを{args.output}に出力しました。")
     else:
         print("指定された条件に一致するデータがありません。")
 
