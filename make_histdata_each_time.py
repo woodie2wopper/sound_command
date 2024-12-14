@@ -32,10 +32,10 @@ def filter_data_by_type(data, data_type):
     else:
         return data[data['type'].str.contains(data_type, na=False)]
 
-def create_histogram_data(data, start_time, end_time, bin_size, output_file):
+def create_histogram_data(data):
     data['Begin Clock Time'] = pd.to_datetime(data['Begin Clock Time'], format='%H:%M:%S.%f')
-    start_time = pd.to_datetime(start_time, format='%H:%M').time()
-    end_time = pd.to_datetime(end_time, format='%H:%M').time()
+    start_time = pd.to_datetime(args.start_time, format='%H:%M').time()
+    end_time = pd.to_datetime(args.end_time, format='%H:%M').time()
 
     # フィルタリング
     if start_time < end_time:
@@ -46,17 +46,12 @@ def create_histogram_data(data, start_time, end_time, bin_size, output_file):
     # データが空でないか確認
     if data.empty:
         print("指定された条件に一致するデータがありません。")
-        return
+        return None
 
     # 時間毎のtype別個数を集計
     hourly_counts = data.groupby([data['Begin Clock Time'].dt.hour, 'type']).size().unstack(fill_value=0)
 
-    # データをCSVファイルとして出力
-    if not hourly_counts.empty:
-        print(hourly_counts)  # デバッグ用に出力を確認
-        hourly_counts.to_csv(output_file)
-    else:
-        print("指定された条件に一致するデータがありません。")
+    return hourly_counts
 
 def main():
     global args
@@ -69,7 +64,15 @@ def main():
         base_name = os.path.splitext(args.input)[0]
         args.output = f"{base_name}_hist_each_time.csv"
     
-    create_histogram_data(filtered_data, args.start_time, args.end_time, args.bin_size, args.output)
+    # ヒストグラムデータを生成
+    histogram_data = create_histogram_data(filtered_data)
+    
+    # ヒストグラムデータを出力
+    if histogram_data is not None and not histogram_data.empty:
+        print(histogram_data)  # デバッグ用に出力を確認
+        histogram_data.to_csv(args.output)
+    else:
+        print("指定された条件に一致するデータがありません。")
 
 if __name__ == '__main__':
     main()
