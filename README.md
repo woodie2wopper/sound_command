@@ -17,7 +17,9 @@
 | divide_1_hour.py                | 長時間録音を１時間毎に分割します。オプションで録音開始時間から１時間毎にするのか、xx:00:00と区切りのいい時間毎にするか選べます。 | ファイル名は６６６形式にしてください。666形式とは6桁の3つの数字が"_"で区切られており、それぞれ、年月日、録音開始時刻、録音終了時刻です。録音開始時刻を使っています。 |
 | serach_Peak_from_toneset.py     | 倍音関係にない複数の純音の組み（トーンセット）が同時に再生された10秒の音源を録音したときの、トーンセットの周波数毎に録音からピーク強度とSN比を求める。 | README_generate_noisefloor.mdをご覧ください                  |
 | generate_noise_floor.py         | 背景録音音源からトーンセットに応じたノイズフロアを生成する. 背景ノイズを録音してください。search_Peak_from_toneset.pyの各周波数のノイズフロアを定義します。移動平均量は40ぐらいが良さそうです。 | README_serach_Peak_from_toneset.md                           |
-| batch.py                       | マイクパターンを求めるバッチ処理。マイクパターンを求めるためには、serach_Peak_from_toneset.pyを実行してください。 | README_serach_Peak_from_toneset.md                           |
+| batch.py                       | マイクパターンを求めるバッチ処理。マイクパターンを求めるためには、serach_Peak_from_toneset.pyを実行してください。 |                            |
+| make_histdata_each_time.py     | データを時間毎に分割してヒストグラムを作成します。 | RavenProのannotation TableDataの編集を想定しています． |
+| show_hist.py                   | ヒストグラムを表示します。 | make_histdata_each_time.pyで生成されたヒストグラムデータを入力に想定しています． |
 
 ## 使い方
 
