@@ -19,6 +19,7 @@ def parse_arguments():
     parser.add_argument('--show_diff', '-s', action='store_true', help='不一致のデータを表示する')
     parser.add_argument('--separator', '-sep', default='\t', help='データの区切り文字（デフォルトはタブ）')
     parser.add_argument('--verbose', '-v', action='store_true', help='詳細な不一致のデータを表示する')
+    parser.add_argument('--ignore-type', '-i', action='store_true', help='音声データの種類を無視して時刻だけを検証する')
     return parser.parse_args()
 
 def read_data(file):
@@ -61,12 +62,11 @@ def compare_data(data1, data2):
 
             time_diff = (time1 - time2).total_seconds()
 
-            if abs(time_diff) <= args.allowed_time_diff and voice1 == voice2:
+            if abs(time_diff) <= args.allowed_time_diff and (args.ignore_type or voice1 == voice2):
                 matches += 1
                 matched = True
                 if args.show_diff:
                     sign = "+" if time_diff > 0 else "-"
-                    # 小数点以下の桁数を指定してフォーマット
                     results.append(f"= {time1} {voice1} | {time2} {voice2} | 時間差: {sign}{abs(time_diff):.{DECIMAL_PLACES}f}秒")
                 break
 
@@ -79,9 +79,9 @@ def compare_data(data1, data2):
         time2 = row2[args.column_name_time]
         voice2 = row2[args.column_name_voice]
 
-        if not any(abs((row1[args.column_name_time] - time2).total_seconds()) <= args.allowed_time_diff and row1[args.column_name_voice] == voice2 for _, row1 in data1.iterrows()):
+        if not any(abs((row1[args.column_name_time] - time2).total_seconds()) <= args.allowed_time_diff and (args.ignore_type or row1[args.column_name_voice] == voice2) for _, row1 in data1.iterrows()):
             mismatches_file2_only += 1
-            if args.show_diff:
+            if args.show_diff and args.verbose:
                 results.append(f"+ {time2} {voice2} (file2のみ)")
 
     if args.show_diff:
