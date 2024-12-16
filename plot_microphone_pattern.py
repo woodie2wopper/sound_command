@@ -10,7 +10,7 @@ import os
 def parse_arguments():
     parser = argparse.ArgumentParser(description='マイクパターンをプロットする')
     parser.add_argument('--input-file', '-i', type=str, help='ピーク強度とSN比の表のファイル')
-    parser.add_argument('--output-file', '-o', type=str, default='plot_microphone_pattern.png', help='出力ファイル名')
+    parser.add_argument('--output-file', '-o', type=str, help='出力ファイル名')
     parser.add_argument('--max', '-mx', type=float, default=100, help='プロットする最大値')
     parser.add_argument('--min', '-mn', type=float, default=0, help='プロットする最小値')
     parser.add_argument('--column', '-c', choices=['p', 's'], default='s', help='ピーク強度かSN比か')
@@ -19,6 +19,7 @@ def parse_arguments():
     parser.add_argument('--toneset', '-t', type=str, help='トーンセットの周波数のマイクパターンをプロットする')
     parser.add_argument('--serch-range', '-sr', type=int, default=50, help='ピークサーチ範囲（デフォルト：50）')
     parser.add_argument('--debug', '-d', action='store_true', help='デバッグ情報を出力する')
+    parser.add_argument('--average', '-a', action='store_true', help='角度毎にデータを平均化してプロットする')
     return parser.parse_args()
 
 def load_data(file_path, column, toneset_file=None, search_range=50):
@@ -83,11 +84,24 @@ def load_data(file_path, column, toneset_file=None, search_range=50):
 
     return angles, freqs, values
 
-def plot_polar(angles, freqs, values ):
+def plot_polar(angles, freqs, values):
     # 日本語フォントを設定
     font_path = '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc'  # ヒラギノ角ゴシックのパス
     font_prop = font_manager.FontProperties(fname=font_path)
     
+    # 平均化オプションが指定されている場合、データを平均化
+    if args.average:
+        values = np.mean(values, axis=1, keepdims=True)
+        if args.output_file is None:
+            args.output_file = 'plot_microphone_pattern_SNR_avrg.png' if args.column == 's' else 'plot_microphone_pattern_Peak_avrg.png'
+        else:
+            base, ext = os.path.splitext(args.output_file)
+            args.output_file = f"{base}_avrg{ext}"
+
+    # ここでoutput_fileがNoneでないことを確認
+    if args.output_file is None:
+        args.output_file = f'plot_microphone_pattern_SNR.png' if args.column == 's' else 'plot_microphone_pattern_Peak.png'  # デフォルトのファイル名を設定
+
     output_file = args.output_file
     min_value = args.min
     max_value = args.max
@@ -111,12 +125,13 @@ def plot_polar(angles, freqs, values ):
         # 指定された周波数範囲内のみプロット
         if (low_freq is None or freq >= low_freq) and (high_freq is None or freq <= high_freq):
             if i < values.shape[1]:  # インデックスが範囲内か確認
-                ax.plot(np.radians(angles), values[:, i], color=colors[i], label=f'{int(freq)} Hz')
+                label = 'average' if args.average else f'{int(freq)} Hz'
+                ax.plot(np.radians(angles), values[:, i], color=colors[i], label=label)
             else:
                 print(f"Skipping index {i} as it is out of bounds for values with shape {values.shape}")
     
     ax.legend(prop=font_prop)  # 凡例にもフォントを適用
-    # 入力ファイルからファイルボディを取得
+    # 入力ファイルからファイ���ボディを取得
     output_file_body = os.path.splitext(os.path.basename(args.output_file))[0]
     ax.set_title(f'マイクパターン {output_file_body}', fontproperties=font_prop)  # タイトルにフォントを適用
     plt.savefig(output_file)
