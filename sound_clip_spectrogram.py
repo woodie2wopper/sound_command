@@ -32,16 +32,14 @@ def parse_arguments():
     parser.add_argument('-mx', '--max', type=float, help='スペクトログラムの強度の最大値')
     parser.add_argument('-mn', '--min', type=float, help='スペクトログラムの強度の最小値')
     parser.add_argument('-d', '--debug', action='store_true', help='デバッグモード')
-    parser.add_argument('-xa', '--x-axis-meaning', type=str, choices=['e', 'c'], default='c', 
-                       help='スペクトログラムの横軸の意味')
+    parser.add_argument('-s', '--show-scale', type=float, default=0, help='スケールバーの時間幅（秒）を表示（デフォルト：切り出し時間の1/10）')
+    parser.add_argument('-xa', '--x-axis-meaning', type=str, choices=['e', 'c'], default='c', help='スペクトログラムの横軸の意味')
     parser.add_argument('--no-x-label', action='store_true', help='x軸のラベルを非表示')
     parser.add_argument('--no-y-label', action='store_true', help='y軸のラベルを非表示')
     parser.add_argument('--no-x-axis', action='store_true', help='x軸を非表示')
     parser.add_argument('--no-y-axis', action='store_true', help='y軸を非表示')
     parser.add_argument('--no-title', action='store_true', help='タイトルを非表示')
     parser.add_argument('--no-legend', action='store_true', help='カラーバー（凡例）を非表示')
-    parser.add_argument('-s', '--show-scale', type=float, default=0,
-                       help='スケールバーの時間幅（秒）を表示（デフォルト：切り出し時間の1/10）')
     return parser.parse_args()
 
 def print_debug_info():
@@ -146,7 +144,7 @@ def plot_spectrogram(y, sr, actual_start_time):
     # タイトルの表示制御
     if not args.no_title:
         channel_str = 'Right' if args.channel == 'r' else 'Left' if args.channel == 'l' else 'Mono'
-        title = f'{channel_str} channel: {args.time:.1f} sec.'
+        title = f'{channel_str} ch: {args.time:.1f} sec.'
         plt.title(title)
     
     # スケールバーの表示
