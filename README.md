@@ -20,10 +20,27 @@
 | batch.py                       | マイクパターンを求めるバッチ処理。マイクパターンを求めるためには、serach_Peak_from_toneset.pyを実行してください。 |                            |
 | make_histdata_each_time.py     | データを時間毎に分割してヒストグラムを作成します。 | RavenProのannotation TableDataの編集を想定しています． |
 | show_hist.py                   | ヒストグラムを表示します。 | make_histdata_each_time.pyで生成されたヒストグラムデータを入力に想定しています． |
+| sound_clip_spectrogram.py      | 音源から指定時刻の音のスペクトログラムと音を出力します。 |  |
 
 ## 使い方
 
 - python <command.py> -hでhelpが表示されます。
+## 共通のオプション
+
+| ショートオプション | ロングオプション | 説明 | デフォルト |
+| --- | --- | --- | --- |
+| -d | --debug | デバッグモード |  |
+| -i | --input-file | 入力ファイル |  |
+| -o | --output-file | 出力ファイル |  |
+| -fs | --fft-size | FFTサイズ | 2048 |
+| -ov | --overlap | overlap | 0.5 |
+| -w | --width | スペクトログラムの横幅 | 200 |
+| -ht | --height | スペクトログラムの縦幅 | 100 |
+| -cm | --colormap | スペクトログラムの色調 | viridis |
+| -lf | --low-freq | スペクトログラムの最低周波数 | 0.0 |
+| -hf | --high-freq | スペクトログラムの最高周波数 | 22100.0 |
+| -mx | --max | スペクトログラムの強度の最大値 |  |
+| -mn | --min | スペクトログラムの強度の最小値 |  |
 
 ## ライセンス
 
