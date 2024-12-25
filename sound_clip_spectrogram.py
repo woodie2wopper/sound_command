@@ -22,7 +22,7 @@ def parse_arguments():
     parser.add_argument('-ch', '--channel-header', type=str, help='チャンネルのヘッダ')
     parser.add_argument('-c', '--channel', type=str, choices=['m', 'l', 'r'], default='m', help='チャンネル選択（m:モノラル、l:左チャンネル、r:右チャンネル、デフォルト:モノラル）')
     parser.add_argument('-of', '--output-file', type=str, help='出力ファイル')
-    parser.add_argument('-fs', '--fft-size', type=int, default=2048, help='FFTサイズ')
+    parser.add_argument('-fs', '--fft-size', type=int, default=512, help='FFTサイズ')
     parser.add_argument('-ov', '--overlap', type=float, default=0.5, help='overlap (default 50%%)')
     parser.add_argument('-w', '--width', type=int, default=600, help='スペクトログラムの横幅：600px')
     parser.add_argument('-ht', '--height', type=int, default=400, help='スペクトログラムの縦幅：400px')
@@ -32,7 +32,7 @@ def parse_arguments():
     parser.add_argument('-mx', '--max', type=float, help='スペクトログラムの強度の最大値')
     parser.add_argument('-mn', '--min', type=float, help='スペクトログラムの強度の最小値')
     parser.add_argument('-d', '--debug', action='store_true', help='デバッグモード')
-    parser.add_argument('-xa', '--x-axis-meaning', type=str, choices=['e', 'c'], default='e', 
+    parser.add_argument('-xa', '--x-axis-meaning', type=str, choices=['e', 'c'], default='c', 
                        help='スペクトログラムの横軸の意味')
     parser.add_argument('--no-x-label', action='store_true', help='x軸のラベルを非表示')
     parser.add_argument('--no-y-label', action='store_true', help='y軸のラベルを非表示')
@@ -40,7 +40,8 @@ def parse_arguments():
     parser.add_argument('--no-y-axis', action='store_true', help='y軸を非表示')
     parser.add_argument('--no-title', action='store_true', help='タイトルを非表示')
     parser.add_argument('--no-legend', action='store_true', help='カラーバー（凡例）を非表示')
-    parser.add_argument('--show-scale', type=float, help='スケールバーの時間幅（秒）を表示')
+    parser.add_argument('-s', '--show-scale', type=float, default=0,
+                       help='スケールバーの時間幅（秒）を表示（デフォルト：切り出し時間の1/10）')
     return parser.parse_args()
 
 def print_debug_info():
@@ -107,7 +108,7 @@ def plot_spectrogram(y, sr, actual_start_time):
                   [f"{x:.1f}" for x in np.arange(args.time - args.Duration/2, 
                                                 args.time + args.Duration/2 + 0.1, 1.0)])
     
-    # 軸とラベルの表示制御
+    # 軸とラ��ルの表示制御
     if args.no_x_axis:
         plt.gca().xaxis.set_visible(False)
     elif args.no_x_label:
@@ -126,6 +127,13 @@ def plot_spectrogram(y, sr, actual_start_time):
         print(f"STFT shape: {D.shape}")
         print(f"Hop length: {hop_length}")
         print(f"Number of time points: {num_ticks}")
+        
+        # x軸とy軸の範囲を表示
+        ax = plt.gca()
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        print(f"X-axis range: {xlim[0]:.2f} to {xlim[1]:.2f}")
+        print(f"Y-axis range: {ylim[0]:.2f} to {ylim[1]:.2f}")
     
     plt.ylim(args.low_freq, args.high_freq)
     if args.min is not None and args.max is not None:
@@ -143,9 +151,13 @@ def plot_spectrogram(y, sr, actual_start_time):
     
     # スケールバーの表示
     if args.show_scale is not None:
+        # スケールバーの色を設定
+        color_scale = 'red'
+        
         # スケールバーの位置とサイズを計算
-        scale_width = args.show_scale  # 指定された時間幅
-        bar_length = scale_width  # X軸上での長さ
+        if args.show_scale == 0:
+            args.show_scale = args.Duration / 10
+        scale_width = args.show_scale
         
         # プロットの現在の範囲を取得
         ax = plt.gca()
@@ -153,27 +165,37 @@ def plot_spectrogram(y, sr, actual_start_time):
         total_height = ylim[1] - ylim[0]
         
         # スケールバーの位置を設定（右下）
-        margin = 0.05  # 余白（5%）
-        bar_y = ylim[0] + total_height * margin  # Y位置
-        bar_x_end = args.Duration * (1 - margin)  # X終点
-        bar_x_start = bar_x_end - bar_length  # X始点
+        margin = 0.1
+        bar_y = ylim[0] + total_height * margin
+        bar_x_end = args.Duration * (1 - margin)
+        bar_x_start = bar_x_end - scale_width
         
         # 横線を描画
-        plt.plot([bar_x_start, bar_x_end], [bar_y, bar_y], 'k-', linewidth=1)
+        if args.debug:
+            print(f"bar_x_start: {bar_x_start}, bar_x_end: {bar_x_end}, bar_y: {bar_y}")
+        plt.plot([bar_x_start, bar_x_end], [bar_y, bar_y], 
+                color=color_scale, linewidth=1)
         
         # 両端の縦線を描画
-        tick_height = total_height * 0.02  # 縦線の長さ（全体の2%）
+        tick_height = total_height * 0.02
         plt.plot([bar_x_start, bar_x_start], 
-                [bar_y - tick_height/2, bar_y + tick_height/2], 'k-', linewidth=1)
+                [bar_y, bar_y + tick_height], 
+                color=color_scale, linewidth=1)
         plt.plot([bar_x_end, bar_x_end], 
-                [bar_y - tick_height/2, bar_y + tick_height/2], 'k-', linewidth=1)
+                [bar_y, bar_y + tick_height], 
+                color=color_scale, linewidth=1)
         
-        # スケールの数値を表示
-        plt.text(bar_x_end + total_height * 0.01, bar_y, 
-                f'{scale_width:.2f} s', 
+        # スケールの数値を表示（位置調整）
+        text_offset_x = args.show_scale * 0.7  # テキストのオフセットを調整
+        text_offset_y = total_height * 0.04  # テキストのオフセットを調整
+        if args.debug:
+            print(f"bar_x_end: {bar_x_end}, text_offset_x: {text_offset_x}, text_offset_y: {text_offset_y}, text_y: {bar_y}")
+        plt.text(bar_x_end - text_offset_x, bar_y + text_offset_y, 
+                f'{scale_width:1.1f} s', 
                 verticalalignment='center', 
                 horizontalalignment='left',
-                fontsize=8)
+                fontsize=12,
+                color=color_scale)
     
     plt.savefig(args.output_file)
     plt.close()
@@ -183,7 +205,7 @@ def main():
     args = parse_arguments()
     
     if not args.time_file and args.time is None:
-        print("エラー: --time-fileまたは--timeオプションのいずれかを指定してください。")
+        print("エラー: --time-fileまたは--timeオプションのいずれか指定してください。")
         sys.exit(1)
     
     if args.debug:
