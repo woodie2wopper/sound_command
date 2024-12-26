@@ -1,4 +1,4 @@
-__version__ = 'v0.0.1'
+__version__ = 'v0.0.2'
 __last_updated__ = '2024-12-26 14:05:07'
 
 #!/usr/bin/env python3
