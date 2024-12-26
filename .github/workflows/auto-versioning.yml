@@ -31,7 +31,7 @@ jobs:
 
     - name: Update version and last updated
       run: |
-        DATE=$(date +'%Y-%m-%d %H:%M:%S')
+        DATE=$(TZ='Asia/Tokyo' date +'%Y-%m-%d %H:%M:%S')
         for file in $(find . -type f \( -name "*.py" -o -name "*.sh" -o -name "*.bash" -o -name "*.awk" \)); do
           if grep -q "__version__" "$file"; then
             # Update existing version
