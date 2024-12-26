@@ -38,7 +38,7 @@ jobs:
             fi
           done
           
-          # バージョンが見つからない場合��初期値を設定
+          # バージョンが見つからない場合���初期値を設定
           if [ -z "$latest_version" ]; then
             echo "LATEST_TAG=v0.0.1" >> $GITHUB_ENV
             echo "No version found in files, using initial version v0.0.1"
@@ -80,8 +80,11 @@ jobs:
           for file in $(git diff --name-only HEAD~1 HEAD | grep '\.py$'); do
             if [ -f "$file" ]; then
               if ! grep -q "__version__" "$file"; then
-                # Add version if not exists
-                sed -i "1i__version__ = '${{ env.NEW_VERSION }}'\n__last_updated__ = '$current_date'\n" "$file"
+                # Get shebang line
+                shebang=$(head -n 1 "$file")
+                # Add version after shebang
+                sed -i "1i$shebang\n__version__='${{ env.NEW_VERSION }}'\n__last_updated__='$current_date'\n" "$file"
+                sed -i '2,$d' "$file"  # Remove duplicate shebang
               else
                 # Update existing version
                 sed -i "s/__version__ = .*/__version__ = '${{ env.NEW_VERSION }}'/" "$file"
@@ -116,11 +119,15 @@ jobs:
           git add .
           git commit -m "chore: Update version to ${{ env.NEW_VERSION }}" || echo "No changes to commit"
           
-          # タグが存在するか確認
+          # タグの衝突を防ぐため、リモートのタグを確認
+          git fetch --tags
           if git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
-            echo "Tag ${{ env.NEW_VERSION }} already exists, deleting..."
-            git tag -d ${{ env.NEW_VERSION }}
-            git push origin :refs/tags/${{ env.NEW_VERSION }}
+            echo "Tag ${{ env.NEW_VERSION }} already exists, incrementing..."
+            # パッチバージョンをインクリメント
+            current_version=${NEW_VERSION#v}
+            IFS='.' read -r major minor patch <<< "$current_version"
+            NEW_VERSION="v$major.$minor.$((patch + 1))"
+            echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           fi
           
           # 新しいタグを作成してプッシュ
