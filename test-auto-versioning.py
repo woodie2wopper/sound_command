@@ -7,3 +7,4 @@ print(os.environ.get("LATEST_TAG"))
 print(__version__)
 print(__last_updated__)
 # MINORのテスト
+# MAJORのテスト
