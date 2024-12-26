@@ -8,3 +8,4 @@ print(__version__)
 print(__last_updated__)
 # MINORのテスト
 # MAJORのテスト
+# 指定したバージョンのテスト
