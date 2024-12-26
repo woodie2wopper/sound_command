@@ -38,7 +38,7 @@ jobs:
             fi
           done
           
-          # バージョンが見つからない場合����初期値を設定
+          # バージョンが見つからない場合初期値を設定
           if [ -z "$latest_version" ]; then
             echo "LATEST_TAG=v0.0.1" >> $GITHUB_ENV
             echo "No version found in files, using initial version v0.0.1"
@@ -116,20 +116,24 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # 変更をコミット
+          NEW_VERSION="${{ env.NEW_VERSION }}"
+          TIMESTAMP=$(date '+%Y%m%d_%H%MS')
+          NEW_VERSION_WITH_TIMESTAMP="${NEW_VERSION}_${TIMESTAMP}"
           git add .
-          git commit -m "chore: Update version to ${{ env.NEW_VERSION }}" || echo "No changes to commit"
+          git commit -m "chore: Update version to ${NEW_VERSION} (${TIMESTAMP})" || echo "No changes to commit"
           
           # タグの衝突を防ぐため、リモートのタグを確認
           git fetch --tags
-          while git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; do
-            echo "Tag ${{ env.NEW_VERSION }} already exists, incrementing..."
+          while git rev-parse "${NEW_VERSION_WITH_TIMESTAMP}" >/dev/null 2>&1; do
+            echo "Tag ${NEW_VERSION_WITH_TIMESTAMP} already exists, incrementing..."
             # パッチバージョンをインクリメント
-            current_version=${NEW_VERSION#v}
+            current_version="${NEW_VERSION_WITH_TIMESTAMP}"
+            current_version=${current_version#v}
             IFS='.' read -r major minor patch <<< "$current_version"
             NEW_VERSION="v$major.$minor.$((patch + 1))"
             echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           done
           
           # 新しいタグを作成してプッシュ
-          git tag -a ${{ env.NEW_VERSION }} -m "Auto versioning: ${{ env.NEW_VERSION }}"
+          git tag -a ${NEW_VERSION_WITH_TIMESTAMP} -m "Auto versioning: ${NEW_VERSION_WITH_TIMESTAMP}"
           git push origin HEAD:main --tags
