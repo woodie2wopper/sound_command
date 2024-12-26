@@ -1,5 +1,5 @@
-__version__ = 'v2.3.4'
-__last_updated__ = '2024-12-26 02:39:34'
+__version__ = 'v2.3.5'
+__last_updated__ = '2024-12-26 11:42:11'
 
 import os
 
