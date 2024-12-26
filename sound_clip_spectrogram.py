@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__version__ = 'v0.0.3'
+__version__ = 'v0.0.4'
 __last_updated__ = '2024-12-26 15:11:53'
 
 import argparse
