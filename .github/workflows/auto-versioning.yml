@@ -38,7 +38,7 @@ jobs:
             fi
           done
           
-          # バージョンが見つからない場合は初期値を設定
+          # バージョンが見つからない場合��初期値を設定
           if [ -z "$latest_version" ]; then
             echo "LATEST_TAG=v0.0.1" >> $GITHUB_ENV
             echo "No version found in files, using initial version v0.0.1"
@@ -111,7 +111,18 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          
+          # 変更をコミット
           git add .
           git commit -m "chore: Update version to ${{ env.NEW_VERSION }}" || echo "No changes to commit"
+          
+          # タグが存在するか確認
+          if git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+            echo "Tag ${{ env.NEW_VERSION }} already exists, deleting..."
+            git tag -d ${{ env.NEW_VERSION }}
+            git push origin :refs/tags/${{ env.NEW_VERSION }}
+          fi
+          
+          # 新しいタグを作成してプッシュ
           git tag -a ${{ env.NEW_VERSION }} -m "Auto versioning: ${{ env.NEW_VERSION }}"
           git push origin HEAD:main --tags
