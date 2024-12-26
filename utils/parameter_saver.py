@@ -4,7 +4,7 @@ import sys
 
 def save_parameters(args, output_file=None, version=None, last_updated=None):
     """
-    コマンドライン引数とバージョン情報をファイルに保存する
+    コマンドライン引数とバージョン情報をファイルに保存する関数
     
     Parameters
     ----------
