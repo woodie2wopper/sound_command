@@ -1,3 +1,6 @@
+__version__ = 'v2.3.6'
+__last_updated__ = '2024-12-26 14:05:07'
+
 #!/usr/bin/env python3
 
 import argparse
