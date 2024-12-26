@@ -25,9 +25,27 @@ jobs:
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          # 最新のタグを取得
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.1")
-          echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
+          # コミットされたファイルから__version__を検索
+          latest_version=""
+          for file in $(git diff --name-only HEAD~1 HEAD | grep -E '\.(py|sh|bash|awk)$'); do
+            if [ -f "$file" ]; then
+              version=$(grep -E "^__version__ ?= ?'v[0-9]+\.[0-9]+\.[0-9]+'" "$file" | cut -d"'" -f2 || true)
+              if [ ! -z "$version" ]; then
+                if [ -z "$latest_version" ] || [ "$(echo -e "$version\n$latest_version" | sort -V | tail -n1)" = "$version" ]; then
+                  latest_version=$version
+                fi
+              fi
+            fi
+          done
+          
+          # バージョンが見つからない場合初期値を設定
+          if [ -z "$latest_version" ]; then
+            echo "LATEST_TAG=v0.0.1" >> $GITHUB_ENV
+            echo "No version found in files, using initial version v0.0.1"
+          else
+            echo "LATEST_TAG=$latest_version" >> $GITHUB_ENV
+            echo "Found version $latest_version in files"
+          fi
 
       - name: Get commit message
         id: commit_message
@@ -99,23 +117,20 @@ jobs:
           
           # 変更をコミット
           NEW_VERSION="${{ env.NEW_VERSION }}"
-          TIMESTAMP=$(date '+%Y%m%d_%H%MS')
-          NEW_VERSION_WITH_TIMESTAMP="${NEW_VERSION}_${TIMESTAMP}"
           git add .
-          git commit -m "chore: Update version to ${NEW_VERSION} (${TIMESTAMP})" || echo "No changes to commit"
+          git commit -m "chore: Update version to ${NEW_VERSION}" || echo "No changes to commit"
           
           # タグの衝突を防ぐため、リモートのタグを確認
           git fetch --tags
-          while git rev-parse "${NEW_VERSION_WITH_TIMESTAMP}" >/dev/null 2>&1; do
-            echo "Tag ${NEW_VERSION_WITH_TIMESTAMP} already exists, incrementing..."
+          while git rev-parse "${NEW_VERSION}" >/dev/null 2>&1; do
+            echo "Tag ${NEW_VERSION} already exists, incrementing..."
             # パッチバージョンをインクリメント
-            current_version="${NEW_VERSION_WITH_TIMESTAMP}"
+            current_version="${NEW_VERSION}"
             current_version=${current_version#v}
             IFS='.' read -r major minor patch <<< "$current_version"
             NEW_VERSION="v$major.$minor.$((patch + 1))"
             echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
           done
           
-          # 新しいタグを作成してプッシュ
-          git tag -a ${NEW_VERSION_WITH_TIMESTAMP} -m "Auto versioning: ${NEW_VERSION_WITH_TIMESTAMP}"
-          git push origin HEAD:main --tags
+          # 変更をプッシュ
+          git push origin HEAD:main -f
