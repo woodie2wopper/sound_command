@@ -9,7 +9,7 @@
 
 ## バージョンの決定方法
 - pythonコードのバージョン情報は、`__version__`として管理します。
-- pythonコードの最終更新日は、`__last_updated__`として管理します。
+- pythonコードの最終更新日は、`__last_updated__`として管理します。日本時間で表示されます。
 - pythonコードに`__version__`と`__last_updated__`が存在しない場合は、リモートリポジトリにpushされたタイミングで自動的に追加します。
 - バージョン更新の対象は`python`と`bash`、`sh`,`awk`のファイルで、拡張子は`.py`、`.sh`、`.bash`、`.awk`です。
 - それぞれのコードはグローバル変数として`__version__`と`__last_updated__`を持ちます。
