@@ -12,6 +12,7 @@ import os
 import sys
 from tqdm import tqdm
 import soundfile as sf
+from utils.parameter_saver import save_parameters
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='音源から指定時刻の音のスペクトログラムと音を出力する')
@@ -201,23 +202,6 @@ def plot_spectrogram(y, sr, actual_start_time):
     plt.savefig(args.output_file)
     plt.close()
 
-def save_parameters():
-    # 出力ファイル名を生成
-    if args.output_file:
-        param_file = os.path.splitext(args.output_file)[0] + '_param.txt'
-    else:
-        base_name = os.path.splitext(os.path.basename(args.input_file))[0]
-        param_file = f"{base_name}_spec_param.txt"
-    
-    # パラメータを出力
-    with open(param_file, 'w', encoding='utf-8') as f:
-        f.write("Parameters:\n")
-        f.write(f"Command: {os.path.basename(sys.argv[0])}\n")
-        f.write(f"Version: {__version__}\n")
-        f.write(f"Last Updated: {__last_updated__}\n\n")
-        for arg, value in sorted(vars(args).items()):
-            f.write(f"{arg}: {value}\n")
-
 def main():
     global args
     args = parse_arguments()
@@ -239,7 +223,12 @@ def main():
     
     y, sr, actual_start_time = load_audio_segment()
     plot_spectrogram(y, sr, actual_start_time)
-    save_parameters()  # パラメータを保存
+    
+    # パラメータを保存
+    save_parameters(args, 
+                   output_file=args.output_file,
+                   version=__version__,
+                   last_updated=__last_updated__)
 
 if __name__ == "__main__":
     main()
