@@ -25,12 +25,26 @@ jobs:
       - name: Get latest tag
         id: get_latest_tag
         run: |
-          git fetch --tags
-          latest_tag=$(git tag --sort=-v:refname | head -n 1)
-          if [ -z "$latest_tag" ]; then
+          # コミットされたファイルから__version__を検索
+          latest_version=""
+          for file in $(git diff --name-only HEAD~1 HEAD | grep -E '\.(py|sh|bash|awk)$'); do
+            if [ -f "$file" ]; then
+              version=$(grep -E "^__version__ ?= ?'v[0-9]+\.[0-9]+\.[0-9]+'" "$file" | cut -d"'" -f2 || true)
+              if [ ! -z "$version" ]; then
+                if [ -z "$latest_version" ] || [ "$(echo -e "$version\n$latest_version" | sort -V | tail -n1)" = "$version" ]; then
+                  latest_version=$version
+                fi
+              fi
+            fi
+          done
+          
+          # バージョンが見つからない場合は初期値を設定
+          if [ -z "$latest_version" ]; then
             echo "LATEST_TAG=v0.0.1" >> $GITHUB_ENV
+            echo "No version found in files, using initial version v0.0.1"
           else
-            echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
+            echo "LATEST_TAG=$latest_version" >> $GITHUB_ENV
+            echo "Found version $latest_version in files"
           fi
 
       - name: Get commit message
