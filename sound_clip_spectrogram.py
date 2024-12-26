@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-__last_updated__ = '2024-12-26 15:27:55'
 
 import argparse
 import numpy as np
