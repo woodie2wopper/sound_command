@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-__version__ = 'v0.0.4'
-__last_updated__ = '2024-12-26 15:11:53'
+__version__ = ''
+__last_updated__ = '2024-12-26 15:14:48'
 
 import argparse
 import numpy as np
