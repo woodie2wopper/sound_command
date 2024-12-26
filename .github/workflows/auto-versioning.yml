@@ -38,7 +38,7 @@ jobs:
             fi
           done
           
-          # バージョンが見つからない場合���初期値を設定
+          # バージョンが見つからない場合����初期値を設定
           if [ -z "$latest_version" ]; then
             echo "LATEST_TAG=v0.0.1" >> $GITHUB_ENV
             echo "No version found in files, using initial version v0.0.1"
@@ -121,14 +121,14 @@ jobs:
           
           # タグの衝突を防ぐため、リモートのタグを確認
           git fetch --tags
-          if git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+          while git rev-parse "${{ env.NEW_VERSION }}" >/dev/null 2>&1; do
             echo "Tag ${{ env.NEW_VERSION }} already exists, incrementing..."
             # パッチバージョンをインクリメント
             current_version=${NEW_VERSION#v}
             IFS='.' read -r major minor patch <<< "$current_version"
             NEW_VERSION="v$major.$minor.$((patch + 1))"
             echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          fi
+          done
           
           # 新しいタグを作成してプッシュ
           git tag -a ${{ env.NEW_VERSION }} -m "Auto versioning: ${{ env.NEW_VERSION }}"
