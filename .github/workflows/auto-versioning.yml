@@ -22,8 +22,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get latest tag
-        id: get_latest_tag
+      - name: Get latest version from files
+        id: get_latest_version
         run: |
           # コミットされたファイルから__version__を検索
           latest_version=""
@@ -38,12 +38,12 @@ jobs:
             fi
           done
           
-          # バージョンが見つからない場合初期値を設定
+          # バージョンが見つからない場合は初期値を設定
           if [ -z "$latest_version" ]; then
-            echo "LATEST_TAG=v0.0.1" >> $GITHUB_ENV
+            echo "LATEST_VERSION=v0.0.1" >> $GITHUB_ENV
             echo "No version found in files, using initial version v0.0.1"
           else
-            echo "LATEST_TAG=$latest_version" >> $GITHUB_ENV
+            echo "LATEST_VERSION=$latest_version" >> $GITHUB_ENV
             echo "Found version $latest_version in files"
           fi
 
@@ -57,7 +57,7 @@ jobs:
       - name: Determine version increment
         id: version_increment
         run: |
-          current_version=${LATEST_TAG#v}
+          current_version=${LATEST_VERSION#v}
           IFS='.' read -r major minor patch <<< "$current_version"
           
           if [[ "${{ env.MESSAGE }}" =~ v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
@@ -80,11 +80,8 @@ jobs:
           for file in $(git diff --name-only HEAD~1 HEAD | grep '\.py$'); do
             if [ -f "$file" ]; then
               if ! grep -q "__version__" "$file"; then
-                # Get shebang line
-                shebang=$(head -n 1 "$file")
-                # Add version after shebang
-                sed -i "1i$shebang\n__version__='${{ env.NEW_VERSION }}'\n__last_updated__='$current_date'\n" "$file"
-                sed -i '2,$d' "$file"  # Remove duplicate shebang
+                # Add version if not exists
+                sed -i "1i__version__ = '${{ env.NEW_VERSION }}'\n__last_updated__ = '$current_date'\n" "$file"
               else
                 # Update existing version
                 sed -i "s/__version__ = .*/__version__ = '${{ env.NEW_VERSION }}'/" "$file"
@@ -116,24 +113,6 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # 変更をコミット
-          NEW_VERSION="${{ env.NEW_VERSION }}"
-          TIMESTAMP=$(date '+%Y%m%d_%H%MS')
-          NEW_VERSION_WITH_TIMESTAMP="${NEW_VERSION}_${TIMESTAMP}"
           git add .
-          git commit -m "chore: Update version to ${NEW_VERSION} (${TIMESTAMP})" || echo "No changes to commit"
-          
-          # タグの衝突を防ぐため、リモートのタグを確認
-          git fetch --tags
-          while git rev-parse "${NEW_VERSION_WITH_TIMESTAMP}" >/dev/null 2>&1; do
-            echo "Tag ${NEW_VERSION_WITH_TIMESTAMP} already exists, incrementing..."
-            # パッチバージョンをインクリメント
-            current_version="${NEW_VERSION_WITH_TIMESTAMP}"
-            current_version=${current_version#v}
-            IFS='.' read -r major minor patch <<< "$current_version"
-            NEW_VERSION="v$major.$minor.$((patch + 1))"
-            echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          done
-          
-          # 新しいタグを作成してプッシュ
-          git tag -a ${NEW_VERSION_WITH_TIMESTAMP} -m "Auto versioning: ${NEW_VERSION_WITH_TIMESTAMP}"
-          git push origin HEAD:main --tags
+          git commit -m "chore: Update version to ${{ env.NEW_VERSION }}" || echo "No changes to commit"
+          git push origin HEAD:main
