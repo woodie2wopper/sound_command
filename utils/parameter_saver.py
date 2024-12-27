@@ -1,6 +1,7 @@
-
 import os
 import sys
+import random
+import string
 
 def save_parameters(args, output_file=None, version=None, last_updated=None):
     """
@@ -35,3 +36,20 @@ def save_parameters(args, output_file=None, version=None, last_updated=None):
         f.write("\n")
         for arg, value in sorted(vars(args).items()):
             f.write(f"{arg}: {value}\n") 
+
+def generate_toriR_hash_tag():
+    """
+    ランダムなハッシュタグを生成する関数
+    重複の検査は行わない。例えばファイル書き込みに失敗するなど、OS側で担保が必要。
+    出力はTR_から始まる5桁のランダムな文字列。
+    例: 1つのハッシュタグを生成して表示
+    >>> print(generate_toriR_hash_tag()) 
+    """
+    # 使用する文字のセットを定義（数字と小文字の英文字）
+    characters = string.digits + string.ascii_lowercase
+    
+    # 'TR_'というプレフィックスに続けて、5桁のランダムな文字列を生成
+    hash_tag = 'TR_' + ''.join(random.choice(characters) for _ in range(5))
+    
+    # 生成されたハッシュタグを返す
+    return hash_tag
