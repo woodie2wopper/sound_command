@@ -77,38 +77,27 @@ jobs:
           current_date=$(TZ='Asia/Tokyo' date '+%Y-%m-%d %H:%M:%S')
           
           # Python files
-          for file in $(git diff --name-only HEAD~1 HEAD | grep '\.py$'); do
+          for file in $(git diff --name-only HEAD~1 HEAD | grep -E '\.(sh|bash|awk|py)$'); do
             if [ -f "$file" ]; then
               if ! grep -q "__version__" "$file"; then
-                shebang=$(head -n 1 "$file")
-                # Add version if not exists
-                sed -i "1i$shebang\n__version__ = '${{ env.NEW_VERSION }}'\n__last_updated__ = '$current_date'\n" "$file"
-                sed -i '2,$d' "$file"  # Remove duplicate shebang
+                # シバンがある場合は保持
+                if head -n 1 "$file" | grep -q "^#!"; then
+                  shebang=$(head -n 1 "$file")
+                  # シバン行の後にバージョン情報を追加
+                  sed -i "1i$shebang\n__version__ = '${{ env.NEW_VERSION }}'\n__last_updated__ = '$current_date'\n" "$file"
+                  sed -i '2,$ { /^#!/ { p; d; }; }' "$file"  # 2行目以降から#!で始まる最初の行を削除
+                else
+                  # シバンがない場合は直接追加
+                  sed -i "1i__version__ = '${{ env.NEW_VERSION }}'\n__last_updated__ = '$current_date'\n" "$file"
+                fi
               else
-                # Update existing version
+                # 既存のバージョンを更新
                 sed -i "s/__version__ = .*/__version__ = '${{ env.NEW_VERSION }}'/" "$file"
                 sed -i "s/__last_updated__ = .*/__last_updated__ = '$current_date'/" "$file"
               fi
             fi
           done
           
-          # Shell and AWK files
-          for file in $(git diff --name-only HEAD~1 HEAD | grep -E '\.(sh|bash|awk)$'); do
-            if [ -f "$file" ]; then
-              if ! grep -q "__version__" "$file"; then
-                # Get shebang line
-                shebang=$(head -n 1 "$file")
-                # Add version after shebang
-                sed -i "1i$shebang\n__version__='${{ env.NEW_VERSION }}'\n__last_updated__='$current_date'\n" "$file"
-                sed -i '2,$d' "$file"  # Remove duplicate shebang
-              else
-                # Update existing version
-                sed -i "s/__version__=.*/__version__='${{ env.NEW_VERSION }}'/" "$file"
-                sed -i "s/__last_updated__=.*/__last_updated__='$current_date'/" "$file"
-              fi
-            fi
-          done
-
       - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
