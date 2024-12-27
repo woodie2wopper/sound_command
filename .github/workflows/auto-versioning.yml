@@ -4,51 +4,136 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '**.py'
+      - '**.sh'
+      - '**.bash'
+      - '**.awk'
 
 jobs:
-  update-versions:
+  versioning:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
+    
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Set up Git
-      run: |
-        git config --global user.name "github-actions"
-        git config --global user.email "github-actions@github.com"
-
-    - name: Determine version bump
-      id: version_bump
-      run: |
-        if [[ "${{ github.event.head_commit.message }}" == *"[MAJOR]"* ]]; then
-          echo "BUMP=major" >> $GITHUB_ENV
-        elif [[ "${{ github.event.head_commit.message }}" == *"[MINOR]"* ]]; then
-          echo "BUMP=minor" >> $GITHUB_ENV
-        else
-          echo "BUMP=patch" >> $GITHUB_ENV
-        fi
-
-    - name: Update version and last updated
-      run: |
-        DATE=$(TZ='Asia/Tokyo' date +'%Y-%m-%d %H:%M:%S')
-        for file in $(find . -type f \( -name "*.py" -o -name "*.sh" -o -name "*.bash" -o -name "*.awk" \)); do
-          if grep -q "__version__" "$file"; then
-            # Update existing version
-            sed -i "s/__version__ = \".*\"/__version__ = \"${{ env.NEW_VERSION }}\"/" "$file"
-            sed -i "s/__last_updated__ = \".*\"/__last_updated__ = \"$DATE\"/" "$file"
-          else
-            # Add version and last updated
-            if [[ "$file" == *.py ]]; then
-              sed -i "1a __version__ = \"${{ env.NEW_VERSION }}\"\n__last_updated__ = \"$DATE\"" "$file"
-            else
-              sed -i "2a __version__ = \"${{ env.NEW_VERSION }}\"\n__last_updated__ = \"$DATE\"" "$file"
+      - name: Get latest tag
+        id: get_latest_tag
+        run: |
+          # コミットされたファイルから__version__を検索
+          latest_version=""
+          for file in $(git diff --name-only HEAD~1 HEAD | grep -E '\.(py|sh|bash|awk)$'); do
+            if [ -f "$file" ]; then
+              version=$(grep -E "^__version__ ?= ?'v[0-9]+\.[0-9]+\.[0-9]+'" "$file" | cut -d"'" -f2 || true)
+              if [ ! -z "$version" ]; then
+                if [ -z "$latest_version" ] || [ "$(echo -e "$version\n$latest_version" | sort -V | tail -n1)" = "$version" ]; then
+                  latest_version=$version
+                fi
+              fi
             fi
+          done
+          
+          # バージョンが見つからない場合初期値を設定
+          if [ -z "$latest_version" ]; then
+            echo "LATEST_TAG=v0.0.1" >> $GITHUB_ENV
+            echo "No version found in files, using initial version v0.0.1"
+          else
+            echo "LATEST_TAG=$latest_version" >> $GITHUB_ENV
+            echo "Found version $latest_version in files"
           fi
-        done
 
-    - name: Commit and push changes
-      run: |
-        git add .
-        git commit -m "chore: Update version to ${{ env.NEW_VERSION }}" || echo "No changes to commit"
-        git push origin HEAD:main
+      - name: Get commit message
+        id: commit_message
+        run: |
+          message=$(git log -1 --pretty=%B)
+          echo "MESSAGE=$message" >> $GITHUB_ENV
+          echo "Commit message: $message"
+
+      - name: Determine version increment
+        id: version_increment
+        run: |
+          current_version=${LATEST_TAG#v}
+          IFS='.' read -r major minor patch <<< "$current_version"
+          
+          if [[ "${{ env.MESSAGE }}" =~ v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            # 直接バージョン指定の場合
+            new_version=$(echo "${{ env.MESSAGE }}" | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+')
+          elif [[ "${{ env.MESSAGE }}" == *"[MAJOR]"* ]]; then
+            new_version="v$((major + 1)).0.0"
+          elif [[ "${{ env.MESSAGE }}" == *"[MINOR]"* ]]; then
+            new_version="v$major.$((minor + 1)).0"
+          else
+            new_version="v$major.$minor.$((patch + 1))"
+          fi
+          echo "NEW_VERSION=$new_version" >> $GITHUB_ENV
+
+      - name: Update version in files
+        run: |
+          current_date=$(TZ='Asia/Tokyo' date '+%Y-%m-%d %H:%M:%S')
+          
+          # Python files
+          for file in $(git diff --name-only HEAD~1 HEAD | grep '\.py$'); do
+            if [ -f "$file" ]; then
+              if ! grep -q "__version__" "$file"; then
+                # Get shebang line
+                shebang=$(head -n 1 "$file")
+                # Add version after shebang
+                sed -i "1i$shebang\n__version__='${{ env.NEW_VERSION }}'\n__last_updated__='$current_date'\n" "$file"
+                sed -i '2,$d' "$file"  # Remove duplicate shebang
+              else
+                # Update existing version
+                sed -i "s/__version__ = .*/__version__ = '${{ env.NEW_VERSION }}'/" "$file"
+                sed -i "s/__last_updated__ = .*/__last_updated__ = '$current_date'/" "$file"
+              fi
+            fi
+          done
+          
+          # Shell and AWK files
+          for file in $(git diff --name-only HEAD~1 HEAD | grep -E '\.(sh|bash|awk)$'); do
+            if [ -f "$file" ]; then
+              if ! grep -q "__version__" "$file"; then
+                # Get shebang line
+                shebang=$(head -n 1 "$file")
+                # Add version after shebang
+                sed -i "1i$shebang\n__version__='${{ env.NEW_VERSION }}'\n__last_updated__='$current_date'\n" "$file"
+                sed -i '2,$d' "$file"  # Remove duplicate shebang
+              else
+                # Update existing version
+                sed -i "s/__version__=.*/__version__='${{ env.NEW_VERSION }}'/" "$file"
+                sed -i "s/__last_updated__=.*/__last_updated__='$current_date'/" "$file"
+              fi
+            fi
+          done
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # 変更をコミット
+          NEW_VERSION="${{ env.NEW_VERSION }}"
+          TIMESTAMP=$(date '+%Y%m%d_%H%MS')
+          NEW_VERSION_WITH_TIMESTAMP="${NEW_VERSION}_${TIMESTAMP}"
+          git add .
+          git commit -m "chore: Update version to ${NEW_VERSION} (${TIMESTAMP})" || echo "No changes to commit"
+          
+          # タグの衝突を防ぐため、リモートのタグを確認
+          git fetch --tags
+          while git rev-parse "${NEW_VERSION_WITH_TIMESTAMP}" >/dev/null 2>&1; do
+            echo "Tag ${NEW_VERSION_WITH_TIMESTAMP} already exists, incrementing..."
+            # パッチバージョンをインクリメント
+            current_version="${NEW_VERSION_WITH_TIMESTAMP}"
+            current_version=${current_version#v}
+            IFS='.' read -r major minor patch <<< "$current_version"
+            NEW_VERSION="v$major.$minor.$((patch + 1))"
+            echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          done
+          
+          # 新しいタグを作成してプッシュ
+          git tag -a ${NEW_VERSION_WITH_TIMESTAMP} -m "Auto versioning: ${NEW_VERSION_WITH_TIMESTAMP}"
+          git push origin HEAD:main --tags
