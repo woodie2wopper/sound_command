@@ -1,3 +1,6 @@
+__version__ = 'v0.0.2'
+__last_updated__ = '2024-12-27 11:47:39'
+
 import os
 import sys
 import random
