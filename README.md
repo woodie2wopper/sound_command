@@ -21,6 +21,7 @@
 | make_histdata_each_time.py     | データを時間毎に分割してヒストグラムを作成します。 | RavenProのannotation TableDataの編集を想定しています． |
 | show_hist.py                   | ヒストグラムを表示します。 | make_histdata_each_time.pyで生成されたヒストグラムデータを入力に想定しています． |
 | sound_clip_spectrogram.py      | 音源から指定時刻の音のスペクトログラムと音を出力します。 |  |
+| xeno-canto_to_HTML_table.py     | xeno-cantoからダウンロードしたデータ（音声、メタデータ、ソナグラム）をHTML形式の表にまとめるスクリプトです。 | doc/xeno-canto_to_HTML_table.md |
 
 ## 使い方
 
