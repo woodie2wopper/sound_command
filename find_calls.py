@@ -292,7 +292,6 @@ def main():
     
     # 鳴き声の検出と結果の保存
     detection_results = detect_calls()
-    save_results(detection_results)
 
     if args.debug:
         print("\n検出結果:")
@@ -313,6 +312,53 @@ def main():
             print(f"  区間: {d['left_ips']:.1f} - {d['right_ips']:.1f} ビン")
             print(f"  幅: {d['width']:.1f} ビン ({d['width_sec']:.3f} 秒)")
     
+    # パラメータファイルの保存
+    param_file = os.path.splitext(args.input_file)[0] + "_param.txt"
+    with open(param_file, "w", encoding="utf-8") as f:
+        # グローバル定数を保存
+        constants = get_global_constants()
+        for key, value in sorted(constants.items()):
+            if isinstance(value, (list, tuple)):
+                # リストや配列は要素をカンマで結合
+                value_str = ";".join(str(x) for x in value)
+            else:
+                value_str = str(value)
+            f.write(f"{key},{value_str}\n")
+        
+        # 解析パラメータ（args）を保存
+        f.write("\n# Analysis Parameters\n")
+        for key, value in sorted(vars(args).items()):
+            f.write(f"{key},{value}\n")
+    
+    save_results(detection_results)
+
+def get_global_constants():
+    """グローバル定数を辞書として返す"""
+    return {
+        # FFTパラメータ
+        'FFT_SIZE': FFT_SIZE,
+        'HOP_LENGTH': HOP_LENGTH,
+        
+        # 時間領域の検出パラメータ
+        'TIME_FRAME_LENGTH': TIME_FRAME_LENGTH,
+        'TIME_HOP_LENGTH': TIME_HOP_LENGTH,
+        
+        # フィルタパラメータ
+        'FILTER_ORDER': FILTER_ORDER,
+        
+        # プロット設定
+        'FIGURE_DPI': FIGURE_DPI,
+        'FIGURE_WIDTH': FIGURE_WIDTH,
+        'FIGURE_HEIGHT': FIGURE_HEIGHT,
+        'FIGURE_SIZE': FIGURE_SIZE,
+        
+        # スペクトログラム設定
+        'SPCTRGRM_POSITION': SPCTRGRM_POSITION,
+        
+        # バージョン情報
+        'VERSION': __version__,
+        'LAST_UPDATED': __last_updated__
+    }
 
 if __name__ == "__main__":
     main()
