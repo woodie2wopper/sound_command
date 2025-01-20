@@ -184,40 +184,39 @@ def save_spectrogram(detection_results, output_path):
         D = librosa.amplitude_to_db(
             np.abs(librosa.stft(waveform_segment, 
                                n_fft=FFT_SIZE,
-                               hop_length=HOP_LENGTH)),  # 50%オーバーラップを指定
+                               hop_length=HOP_LENGTH)),
             ref=np.max
         )
         img = librosa.display.specshow(D, sr=sampling_rate, x_axis='time', y_axis='hz',
-                                     hop_length=HOP_LENGTH,  # 表示のスケーリングにも必要
+                                     hop_length=HOP_LENGTH,
                                      cmap='viridis', ax=ax)
         
         # 周波数範囲を設定
         ax.set_ylim([args.low_freq, args.high_freq])
-        
-        # 時間軸を0からspectrogram_timeに設定
         ax.set_xlim([0, args.spectrogram_time])
         
-        # 目盛りを図の内側に設定
-        ax.tick_params(axis='both', which='both', direction='in',
-                      labelbottom=True, labelleft=True,
-                      bottom=True, left=True)
-        
-        # グリッドの設定を強調
-        ax.grid(True, which='major', axis='both',     # majorのみに変更（線を減らしてはっきりと）
-                alpha=0.8,                            # 透明度を下げて濃く
-                linestyle='--',                       # 破線に変更（点線より見やすく）
-                linewidth=0.6,                        # 線の太さを指定
-                color='black')                        # 白色で表示（スペクトログラム上で見やすく）
-        
-        # 実際の時刻をタイトルに含める
-        start_time = start_index / sampling_rate
-        title = f"{title} (at {start_time:.2f}s)"
-        
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Frequency (Hz)')
-        
-        plt.colorbar(img, format='%+2.0f dB', ax=ax)
-        ax.set_title(title)
+        if not args.spectrogram_only:
+            # 通常の表示設定
+            ax.tick_params(axis='both', which='both', direction='in',
+                          labelbottom=True, labelleft=True,
+                          bottom=True, left=True)
+            ax.grid(True, which='major', axis='both',
+                    alpha=0.8, linestyle='--',
+                    linewidth=0.6, color='black')
+            ax.set_xlabel('Time (s)')
+            ax.set_ylabel('Frequency (Hz)')
+            plt.colorbar(img, format='%+2.0f dB', ax=ax)
+            ax.set_title(title)
+        else:
+            # スペクトログラムのみ表示
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            ax.grid(False)
+            ax.set_xlabel('')
+            ax.set_ylabel('')
+            ax.set_title('')
         
         plt.savefig(output_file, bbox_inches='tight', pad_inches=0)
         plt.close()
@@ -262,6 +261,8 @@ def parse_arguments():
     parser.add_argument("-hf", "--high_freq", type=int, default=10000, help="Spectrogram high frequency limit (Hz)")
     parser.add_argument("-flcf", "--freq_low_cut_filter", type=int, default=0, help="Low cut filter frequency (Hz)")
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument("-so", "--spectrogram_only", action="store_true", 
+                       help="Show only spectrogram without any labels or decorations")
     
     args = parser.parse_args()
     
@@ -282,6 +283,7 @@ def parse_arguments():
         print(f"周波数上限: {args.high_freq} Hz")
         print(f"ローカットフィルタ: {args.freq_low_cut_filter} Hz")
         print(f"デバッグモード: {args.debug}")
+        print(f"スペクトログラムのみ表示: {args.spectrogram_only}")
     return args
 
 def main():
