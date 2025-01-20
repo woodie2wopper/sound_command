@@ -29,12 +29,16 @@ FILTER_ORDER = 4  # バターワースフィルタの次数
 
 # プロット設定
 FIGURE_DPI = 100                  # 解像度 (dots per inch)
-FIGURE_WIDTH = 400                # 図の幅 (pixels)
-FIGURE_HEIGHT = 250               # 図の高さ (pixels)
+FIGURE_WIDTH = 800                # 図の幅 (pixels)
+FIGURE_HEIGHT = 500               # 図の高さ (pixels) - 16:10に近い黄金比
 FIGURE_SIZE = (FIGURE_WIDTH / FIGURE_DPI, FIGURE_HEIGHT / FIGURE_DPI)  # 図のサイズ (inches)
 
 # スペクトログラム設定
-SPCTRGRM_POSITION = [0.1, 0.1, 0.8, 0.8]  # スペクトログラムの位置 [left, bottom, width, height] in figure coordinates
+SPCTRGRM_POSITION = [0.12, 0.15, 0.75, 0.65]  # スペクトログラムの位置 [left, bottom, width, height]
+                                              # left: ラベル用の余白
+                                              # bottom: x軸ラベル用の余白
+                                              # width: カラーバー用の余白
+                                              # height: 0.7→0.65に変更（タイトル用の余白を増加）
 
 def process_audio():
     """音声データの読み込みと前処理"""
@@ -164,44 +168,63 @@ def save_spectrogram(detection_results, output_path):
     sampling_rate = detection_results['sampling_rate']
     detections = detection_results['detections']
     
-    def create_spectrogram(data, title, output_file):
-        # 図全体のサイズを設定
-        plt.figure(figsize=FIGURE_SIZE, dpi=FIGURE_DPI)
+    def create_spectrogram(waveform_segment, start_index, title, output_file):
+        """スペクトログラムを生成して保存する
         
-        # スペクトログラムの位置とサイズを設定
+        Args:
+            waveform_segment: 切り出された波形データ（指定時間分のセグメント）
+            start_index: セグメントの開始位置（サンプル）
+            title: グラフのタイトル
+            output_file: 出力ファイル名
+        """
+        plt.figure(figsize=FIGURE_SIZE, dpi=FIGURE_DPI)
         ax = plt.axes(SPCTRGRM_POSITION)
         
         # スペクトログラムを描画
-        D = librosa.amplitude_to_db(np.abs(librosa.stft(data, n_fft=FFT_SIZE)), ref=np.max)
-        img = librosa.display.specshow(D, sr=sampling_rate, x_axis='time', y_axis='hz', 
+        D = librosa.amplitude_to_db(
+            np.abs(librosa.stft(waveform_segment, 
+                               n_fft=FFT_SIZE,
+                               hop_length=HOP_LENGTH)),  # 50%オーバーラップを指定
+            ref=np.max
+        )
+        img = librosa.display.specshow(D, sr=sampling_rate, x_axis='time', y_axis='hz',
+                                     hop_length=HOP_LENGTH,  # 表示のスケーリングにも必要
                                      cmap='viridis', ax=ax)
         
         # 周波数範囲を設定
         ax.set_ylim([args.low_freq, args.high_freq])
         
-        # 軸の設定
+        # 時間軸を0からspectrogram_timeに設定
+        ax.set_xlim([0, args.spectrogram_time])
+        
+        # 目盛りを図の内側に設定
         ax.tick_params(axis='both', which='both', direction='in',
                       labelbottom=True, labelleft=True,
                       bottom=True, left=True)
         
-        # 軸ラベルを設定
+        # グリッドの設定を強調
+        ax.grid(True, which='major', axis='both',     # majorのみに変更（線を減らしてはっきりと）
+                alpha=0.8,                            # 透明度を下げて濃く
+                linestyle='--',                       # 破線に変更（点線より見やすく）
+                linewidth=0.6,                        # 線の太さを指定
+                color='black')                        # 白色で表示（スペクトログラム上で見やすく）
+        
+        # 実際の時刻をタイトルに含める
+        start_time = start_index / sampling_rate
+        title = f"{title} (at {start_time:.2f}s)"
+        
         ax.set_xlabel('Time (s)')
         ax.set_ylabel('Frequency (Hz)')
         
-        # グリッドを追加
-        ax.grid(True, alpha=0.3, linestyle='--')
-        
-        # カラーバーとタイトルを追加
         plt.colorbar(img, format='%+2.0f dB', ax=ax)
         ax.set_title(title)
         
-        # 保存して閉じる
         plt.savefig(output_file, bbox_inches='tight', pad_inches=0)
         plt.close()
 
     if detections is None:
         # 全体のスペクトログラム
-        create_spectrogram(waveform, "Spectrogram", output_path)
+        print("スペクトログラムなし")
         return
 
     # 各検出区間のスペクトログラム
@@ -216,10 +239,16 @@ def save_spectrogram(detection_results, output_path):
         window_end = min(len(waveform), int((center_time + half_window) * sampling_rate))
         waveform_segment = waveform[window_start:window_end]
         
+        if args.debug:
+            print(f"Call No.{i} (Time: {center_time:.2f}s, Duration: {detection['width_sec']:.3f}s)")
+            print(f"   Window Start: {window_start/sampling_rate:.2f}s, Window End: {window_end/sampling_rate:.2f}s")
+            print(f"   Waveform Segment Length: {len(waveform_segment)} samples")
+            print(f"   Waveform Segment Start: {window_start:}, End: {window_end:}")
+        
         title = f"Call No.{i} (Time: {center_time:.2f}s, Duration: {detection['width_sec']:.3f}s)"
         output_file = f"{output_base}_no{i}.png"
         
-        create_spectrogram(waveform_segment, title, output_file)
+        create_spectrogram(waveform_segment, window_start, title, output_file)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Find bird calls in an audio file")
