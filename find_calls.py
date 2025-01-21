@@ -133,9 +133,7 @@ def save_results(detection_results):
     
     detections = detection_results['detections']
     waveform = detection_results['waveform']
-    
-    # 出力ファイル名のベースを取得
-    base_name = os.path.splitext(os.path.basename(detection_results['audio_file']))[0]
+    sampling_rate = detection_results['sampling_rate']
     
     # CSVファイルに結果を保存
     with open(args.output_file, "w") as f:
@@ -144,15 +142,19 @@ def save_results(detection_results):
             f.write(f"{i},{detection['time']:.2f},{detection['method']},"
                    f"{detection['width_sec']:.3f},{detection['height']:.2f}\n")
     
-    # スペクトログラムのファイル名を生成
-    output_spectrogram = f"{base_name}_spectrogram.png"
-    
-    # スペクトログラムを保存
-    save_spectrogram(detection_results, output_spectrogram)
+    # スペクトログラムの生成をスキップ
+    if not args.no_spectrogram:
+        # スペクトログラムのファイル名を生成
+        base_name = os.path.splitext(os.path.basename(detection_results['audio_file']))[0]
+        output_spectrogram = f"{base_name}_spectrogram.png"
+        
+        # スペクトログラムを保存
+        save_spectrogram(detection_results, output_spectrogram)
     
     if args.debug:
-        print(f"Detected {len(detections)} calls. Results saved in {args.output_file}")
-        print(f"Spectrograms saved as {os.path.splitext(output_spectrogram)[0]}_no*.png")
+        print(f"Detected {len(detections)} calls")
+        if not args.no_spectrogram:
+            print(f"Spectrograms saved as {os.path.splitext(output_spectrogram)[0]}_no*.png")
         print(f"Spectrogram time window: {args.spectrogram_time} seconds")
         # 検出された鳴き声の継続時間の統計を表示
         if detections:
@@ -250,7 +252,7 @@ def save_spectrogram(detection_results, output_path):
         create_spectrogram(waveform_segment, window_start, title, output_file)
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Find bird calls in an audio file")
+    parser = argparse.ArgumentParser(description="音声ファイルから鳥の鳴き声を検出するプログラム")
     parser.add_argument("-i", "--input_file", required=True, help="Path to input audio file")
     parser.add_argument("-o", "--output_file", help="Path to output text file")
     parser.add_argument("-th", "--threshold", type=float, default=0.1, help="Detection threshold")
@@ -263,6 +265,8 @@ def parse_arguments():
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode")
     parser.add_argument("-so", "--spectrogram_only", action="store_true", 
                        help="Show only spectrogram without any labels or decorations")
+    parser.add_argument("-ns", "--no_spectrogram", action="store_true", 
+                       help="Do not generate spectrograms")
     
     args = parser.parse_args()
     
@@ -284,6 +288,7 @@ def parse_arguments():
         print(f"ローカットフィルタ: {args.freq_low_cut_filter} Hz")
         print(f"デバッグモード: {args.debug}")
         print(f"スペクトログラムのみ表示: {args.spectrogram_only}")
+        print(f"スペクトログラムを生成しない: {args.no_spectrogram}")
     return args
 
 def main():
