@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import requests
 
 # グローバル変数の定義
 args = None
@@ -15,7 +16,8 @@ args = None
 # 定数の定義
 SONO_SIZE = 'small'  # ソナグラムのサイズ（'small', 'med', 'large', 'full'）
 AUDIO_ROOT = '../dataset/audio'  # オーディオファイルのルートディレクトリ（HTMLからの相対パス）
-METADATA_ROOT = './dataset/metadata'  # メタデータのルートディレクトリ
+METADATA_DIR = './dataset/metadata'  # メタデータのルートディレクトリ
+OUTPUT_DIR = "./dataset/spectrogram"
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='xeno-cantoのデータからHTML表を生成する')
@@ -32,7 +34,7 @@ def parse_arguments():
 def load_metadata(bird_name, debug=False):
     """JSONファイルからメタデータを読み込む"""
     recordings = []
-    metadata_root = Path(METADATA_ROOT)
+    metadata_root = Path(METADATA_DIR)
     
     if not metadata_root.exists():
         print(f"Error: Metadata root directory not found: {metadata_root}")
@@ -127,6 +129,64 @@ def generate_html_table(recordings, items, output_dir):
     
     return output_file
 
+def download_spectrograms(metadata_dir, output_dir, bird_name):
+    """
+    メタデータから指定された鳥のスペクトログラムをダウンロードして保存する
+    
+    Args:
+        metadata_dir (str): メタデータJSONファイルのディレクトリパス
+        output_dir (str): スペクトログラム保存先のベースディレクトリパス
+        bird_name (str): 操作対象の鳥の名前
+    """
+    # 出力ディレクトリが存在しない場合は作成
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    
+    # 鳥の名前をフォーマット
+    formatted_name = bird_name.replace(' ', '') + 'type_call'
+    species_dir = Path(metadata_dir) / formatted_name
+    
+    if not species_dir.exists():
+        print(f"Error: Species directory not found: {species_dir}")
+        return
+    
+    # 各ページのJSONファイルを処理
+    for json_file in species_dir.glob('*.json'):
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        if 'recordings' not in data:
+            continue
+            
+        # 最初のレコーディングから英名を取得してディレクトリ名を作成
+        if not data['recordings']:
+            continue
+            
+        en_name = data['recordings'][0]['en']
+        # スペースを_に置換、's を s に置換
+        dir_name = en_name.replace(" ", "_").replace("'s", "s")
+        species_output_dir = Path(output_dir) / dir_name
+        species_output_dir.mkdir(exist_ok=True)
+        
+        # 各レコーディングのスペクトログラムをダウンロード
+        for recording in data['recordings']:
+            if 'sono' not in recording or 'small' not in recording['sono']:
+                continue
+                
+            sono_url = f"https:{recording['sono']['small']}"
+            output_path = species_output_dir / f"{recording['id']}.png"
+            
+            # ファイルが存在しない場合のみダウンロード
+            if not output_path.exists():
+                try:
+                    response = requests.get(sono_url)
+                    response.raise_for_status()
+                    
+                    with open(output_path, 'wb') as f:
+                        f.write(response.content)
+                    print(f"Downloaded: {output_path}")
+                except Exception as e:
+                    print(f"Error downloading {sono_url}: {e}")
+
 def main():
     global args  # グローバル変数として宣言
     args = parse_arguments()
@@ -155,6 +215,9 @@ def main():
     # HTMLテーブルを生成
     output_file = generate_html_table(recordings, items, args.output_dir)
     print(f"HTML table generated: {output_file}")
+    
+    # スペクトログラムのダウンロード
+    download_spectrograms(METADATA_DIR, OUTPUT_DIR, args.bird_name)
 
 if __name__ == "__main__":
     main()

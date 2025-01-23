@@ -16,29 +16,34 @@ import soundfile as sf
 args = None
 
 # 定数の定義
-# FFTパラメータ
-FFT_SIZE = 256  # FFTのウィンドウサイズ（5.8ms @ 44.1kHz）
-HOP_LENGTH = FFT_SIZE // 2  # 50%オーバーラップ（2.9ms @ 44.1kHz）
+CONST = {
+    # FFTパラメータ
+    'FFT_SIZE': 256,  # FFTのウィンドウサイズ（5.8ms @ 44.1kHz）
+    'HOP_LENGTH': 128,  # 50%オーバーラップ（2.9ms @ 44.1kHz）
+    
+    # 時間領域の検出パラメータ
+    'TIME_FRAME_LENGTH': 2048,  # 46.4ms @ 44.1kHz
+    'TIME_HOP_LENGTH': 512,    # 11.6ms @ 44.1kHz
+    
+    # フィルタパラメータ
+    'FILTER_ORDER': 4,  # バターワースフィルタの次数
+    
+    # プロット設定
+    'FIGURE_DPI': 100,                  # 解像度 (dots per inch)
+    'FIGURE_WIDTH': 800,                # 図の幅 (pixels)
+    'FIGURE_HEIGHT': 500,               # 図の高さ (pixels) - 16:10に近い黄金比
+    
+    # スペクトログラム設定
+    'SPCTRGRM_POSITION': [0.12, 0.15, 0.75, 0.65],  # [left, bottom, width, height]
+    
+    # バージョン情報
+    'VERSION': __version__,
+    'LAST_UPDATED': __last_updated__
+}
 
-# 時間領域の検出パラメータ
-TIME_FRAME_LENGTH = 2048  # 46.4ms @ 44.1kHz
-TIME_HOP_LENGTH = 512    # 11.6ms @ 44.1kHz
-
-# フィルタパラメータ
-FILTER_ORDER = 4  # バターワースフィルタの次数
-
-# プロット設定
-FIGURE_DPI = 100                  # 解像度 (dots per inch)
-FIGURE_WIDTH = 800                # 図の幅 (pixels)
-FIGURE_HEIGHT = 500               # 図の高さ (pixels) - 16:10に近い黄金比
-FIGURE_SIZE = (FIGURE_WIDTH / FIGURE_DPI, FIGURE_HEIGHT / FIGURE_DPI)  # 図のサイズ (inches)
-
-# スペクトログラム設定
-SPCTRGRM_POSITION = [0.12, 0.15, 0.75, 0.65]  # スペクトログラムの位置 [left, bottom, width, height]
-                                              # left: ラベル用の余白
-                                              # bottom: x軸ラベル用の余白
-                                              # width: カラーバー用の余白
-                                              # height: 0.7→0.65に変更（タイトル用の余白を増加）
+# 計算が必要な定数を追加
+CONST['FIGURE_SIZE'] = (CONST['FIGURE_WIDTH'] / CONST['FIGURE_DPI'], 
+                       CONST['FIGURE_HEIGHT'] / CONST['FIGURE_DPI'])
 
 def process_audio():
     """音声データの読み込みと前処理"""
@@ -57,7 +62,7 @@ def process_audio():
         # バターワースフィルタの設計
         nyquist = sampling_rate / 2
         norm_cutoff = args.freq_low_cut_filter / nyquist
-        b, a = scipy.signal.butter(N=FILTER_ORDER, Wn=norm_cutoff, btype='high')
+        b, a = scipy.signal.butter(N=CONST['FILTER_ORDER'], Wn=norm_cutoff, btype='high')
         
         # フィルタの適用
         waveform = scipy.signal.filtfilt(b, a, waveform)
@@ -98,15 +103,15 @@ def detect_calls():
     return detection_results
 
 def detect_calls_time(waveform, sampling_rate):
-    rms = librosa.feature.rms(y=waveform, frame_length=TIME_FRAME_LENGTH, 
-                            hop_length=TIME_HOP_LENGTH)[0]
+    rms = librosa.feature.rms(y=waveform, frame_length=CONST['TIME_FRAME_LENGTH'], 
+                            hop_length=CONST['TIME_HOP_LENGTH'])[0]
     
     times = librosa.frames_to_time(np.arange(len(rms)), sr=sampling_rate, 
-                                 hop_length=TIME_HOP_LENGTH)
+                                 hop_length=CONST['TIME_HOP_LENGTH'])
     
     # ピークの検出と幅の計測
     peaks, properties = scipy.signal.find_peaks(rms, height=args.threshold, 
-                                              distance=int(args.max_call_duration * sampling_rate / TIME_HOP_LENGTH),
+                                              distance=int(args.max_call_duration * sampling_rate / CONST['TIME_HOP_LENGTH']),
                                               width=1)  # 最小幅を1サンプルに設定
     
     # 検出情報を構造化
@@ -120,7 +125,7 @@ def detect_calls_time(waveform, sampling_rate):
             'right_ips': properties['right_ips'][i],# 右端のインデックス
             'width': properties['widths'][i],       # 幅（サンプル数）
             'height': properties['peak_heights'][i], # ピーク値
-            'width_sec': properties['widths'][i] * TIME_HOP_LENGTH / sampling_rate  # 幅（秒）
+            'width_sec': properties['widths'][i] * CONST['TIME_HOP_LENGTH'] / sampling_rate  # 幅（秒）
         }
         detections.append(detection)
     
@@ -179,18 +184,18 @@ def save_spectrogram(detection_results, output_path):
             title: グラフのタイトル
             output_file: 出力ファイル名
         """
-        plt.figure(figsize=FIGURE_SIZE, dpi=FIGURE_DPI)
-        ax = plt.axes(SPCTRGRM_POSITION)
+        plt.figure(figsize=CONST['FIGURE_SIZE'], dpi=CONST['FIGURE_DPI'])
+        ax = plt.axes(CONST['SPCTRGRM_POSITION'])
         
         # スペクトログラムを描画
         D = librosa.amplitude_to_db(
             np.abs(librosa.stft(waveform_segment, 
-                               n_fft=FFT_SIZE,
-                               hop_length=HOP_LENGTH)),
-            ref=np.max
-        )
+                               n_fft=CONST['FFT_SIZE'],
+                               hop_length=CONST['HOP_LENGTH'])),
+            ref=np.max)
+        
         img = librosa.display.specshow(D, sr=sampling_rate, x_axis='time', y_axis='hz',
-                                     hop_length=HOP_LENGTH,
+                                     hop_length=CONST['HOP_LENGTH'],
                                      cmap='viridis', ax=ax)
         
         # 周波数範囲を設定
@@ -313,7 +318,7 @@ def main():
             print(f"  継続時間: {d['width_sec']:.3f} 秒")
             print(f"  強度: {d['height']:.3f}")
             print(f"  ピーク位置: {d['peak_index']} ビン "
-                  f"({d['peak_index'] * TIME_HOP_LENGTH} サンプル, {d['time']:.3f} 秒)")
+                  f"({d['peak_index'] * CONST['TIME_HOP_LENGTH']} サンプル, {d['time']:.3f} 秒)")
             print(f"  区間: {d['left_ips']:.1f} - {d['right_ips']:.1f} ビン")
             print(f"  幅: {d['width']:.1f} ビン ({d['width_sec']:.3f} 秒)")
     
@@ -321,8 +326,7 @@ def main():
     param_file = os.path.splitext(args.input_file)[0] + "_param.txt"
     with open(param_file, "w", encoding="utf-8") as f:
         # グローバル定数を保存
-        constants = get_global_constants()
-        for key, value in sorted(constants.items()):
+        for key, value in sorted(CONST.items()):
             if isinstance(value, (list, tuple)):
                 # リストや配列は要素をカンマで結合
                 value_str = ";".join(str(x) for x in value)
@@ -336,34 +340,6 @@ def main():
             f.write(f"{key},{value}\n")
     
     save_results(detection_results)
-
-def get_global_constants():
-    """グローバル定数を辞書として返す"""
-    return {
-        # FFTパラメータ
-        'FFT_SIZE': FFT_SIZE,
-        'HOP_LENGTH': HOP_LENGTH,
-        
-        # 時間領域の検出パラメータ
-        'TIME_FRAME_LENGTH': TIME_FRAME_LENGTH,
-        'TIME_HOP_LENGTH': TIME_HOP_LENGTH,
-        
-        # フィルタパラメータ
-        'FILTER_ORDER': FILTER_ORDER,
-        
-        # プロット設定
-        'FIGURE_DPI': FIGURE_DPI,
-        'FIGURE_WIDTH': FIGURE_WIDTH,
-        'FIGURE_HEIGHT': FIGURE_HEIGHT,
-        'FIGURE_SIZE': FIGURE_SIZE,
-        
-        # スペクトログラム設定
-        'SPCTRGRM_POSITION': SPCTRGRM_POSITION,
-        
-        # バージョン情報
-        'VERSION': __version__,
-        'LAST_UPDATED': __last_updated__
-    }
 
 if __name__ == "__main__":
     main()

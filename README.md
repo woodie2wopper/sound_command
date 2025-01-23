@@ -22,7 +22,7 @@
 | show_hist.py                   | ヒストグラムを表示します。 | make_histdata_each_time.pyで生成されたヒストグラムデータを入力に想定しています． |
 | sound_clip_spectrogram.py      | 音源から指定時刻の音のスペクトログラムと音を出力します。 |  |
 | xeno-canto_to_HTML_table.py     | xeno-cantoからダウンロードしたデータ（音声、メタデータ、ソナグラム）をHTML形式の表にまとめるスクリプトです。 | doc/xeno-canto_to_HTML_table.md |
-
+| convert_bird_names.py           | 指定のディレクトリ名を学名から英語名に、またその逆に変換するコマンドを発行します。 | 例） `convert_bird_names.py . -d en2sci | sh -C` 
 ## 使い方
 
 - python <command.py> -hでhelpが表示されます。
