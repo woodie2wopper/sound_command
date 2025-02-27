@@ -39,6 +39,7 @@ def create_database():
             url TEXT,
             file TEXT,
             file_name TEXT,
+            ext TEXT,
             sono_small TEXT,
             sono_med TEXT,
             sono_large TEXT,
@@ -71,10 +72,11 @@ def create_database():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS annotation_status (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sound_metadata_id INTEGER NOT NULL,
+            origin TEXT NOT NULL,
+            recording_id INTEGER NOT NULL,
             is_annotated BOOLEAN DEFAULT FALSE,
-            FOREIGN KEY (sound_metadata_id) REFERENCES sound_metadata(id),
-            UNIQUE(sound_metadata_id)
+            FOREIGN KEY (origin, recording_id) REFERENCES sound_metadata(origin, recording_id),
+            UNIQUE(origin, recording_id)
         )
     ''')
     
@@ -165,7 +167,7 @@ def import_json_to_sqlite(json_file_path, origin, debug=False, verbose=False):
             origin, page, num_recordings, num_species, num_pages,
             recording_id, gen, sp, ssp, group_name, en,
             rec, cnt, loc, lat, lng, alt, type, sex,
-            stage, method, url, file, file_name,
+            stage, method, url, file, file_name, ext,
             sono_small, sono_med, sono_large, sono_full,
             osci_small, osci_med, osci_large,
             lic, quality, length, time, date, uploaded,
@@ -192,6 +194,15 @@ def import_json_to_sqlite(json_file_path, origin, debug=False, verbose=False):
                 skipped_count += 1
                 continue
             
+            # ファイル名から拡張子を抽出（小文字で保存）
+            file_name = recording.get('file-name', '')
+            # 最後のドットの位置を見つける
+            last_dot_index = file_name.rfind('.')
+            # ドットが見つかり、それが最後の文字でない場合のみ拡張子を抽出
+            extension = file_name[last_dot_index + 1:].lower() if last_dot_index > 0 and last_dot_index < len(file_name) - 1 else ''
+            # 拡張子が異常に長い場合は空文字を設定（正常な拡張子は通常10文字以下）
+            extension = extension if len(extension) <= 10 else ''
+
             values = [
                 origin,
                 page, num_recordings, num_species, num_pages,
@@ -201,6 +212,7 @@ def import_json_to_sqlite(json_file_path, origin, debug=False, verbose=False):
                 recording.get('type', ''), recording.get('sex', ''), recording.get('stage', ''),
                 recording.get('method', ''),
                 recording.get('url', ''), recording.get('file', ''), recording.get('file-name', ''),
+                extension,
                 recording.get('sono', {}).get('small', ''),
                 recording.get('sono', {}).get('med', ''),
                 recording.get('sono', {}).get('large', ''),
@@ -233,9 +245,9 @@ def import_json_to_sqlite(json_file_path, origin, debug=False, verbose=False):
                 
                 # sound_metadataの挿入後、対応するannotation_statusレコードを作成
                 cursor.execute('''
-                    INSERT INTO annotation_status (sound_metadata_id, is_annotated)
-                    VALUES (?, ?)
-                ''', (cursor.lastrowid, False))
+                    INSERT INTO annotation_status (origin, recording_id, is_annotated)
+                    VALUES (?, ?, ?)
+                ''', (origin, recording['id'], False))
                 
                 inserted_count += 1
                 if verbose:
