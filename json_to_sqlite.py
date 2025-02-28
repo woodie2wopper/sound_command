@@ -75,6 +75,7 @@ def create_database():
             origin TEXT NOT NULL,
             recording_id INTEGER NOT NULL,
             is_annotated BOOLEAN DEFAULT FALSE,
+            counts_annotation INTEGER DEFAULT 0,
             FOREIGN KEY (origin, recording_id) REFERENCES sound_metadata(origin, recording_id),
             UNIQUE(origin, recording_id)
         )
