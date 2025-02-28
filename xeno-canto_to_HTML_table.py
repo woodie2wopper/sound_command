@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-__version__ = 'v0.0.4'
-__last_updated__ = '2025-02-26 09:26:38'
+__version__ = 'v0.0.5'
+__last_updated__ = '2025-02-28 16:39:16'
 
 import argparse
 import json
