@@ -1,0 +1,365 @@
+#!/usr/local/bin/bash -eu
+# wav2aiff
+# 2024-02-10 (C) woodie2wopper@gmail.com
+CMD_SESSION=$( basename $0 )
+
+d_log=$HOME/log
+[ -d $d_log ] || mkdir $d_log
+f_log="$d_log/$CMD_SESSION.$(date '+%y%m%d_%H%M%S').$$.clog"
+programname=$( basename $0 );
+i=0;
+
+# ####################################################################################
+# 使い方の表示
+# ####################################################################################
+function show_usage() {
+  echo " FileStamp_to_f666.bashのラッパー"
+  echo " USAGE:\$ $programname XX.WAV [mf|-] [~/Desktop|dir_output] [ifs|ifn] [-010000] [dryrun]"
+  echo " "
+  echo " OPT: [timediff] 時差 : %H%M%Sで入力の事"
+  echo " OPT: [mf|-] mfは森下フォーマット。出力は[モズ高鳴き_202109250740_東京都国分寺市_植田睦之.wav]で、拡張子は変えない"
+  echo " OPT: [ifs]はファイルのタイムスタンプを無視する(Ignore File Stamp)"
+  echo " OPT: [ifn]はファイル名のタイムを無視する(Ignore File Name)"
+  echo " OPT: [omsg]はメッセージの出力"
+  echo " USAGE[Xacti1]:\$ cd /Volumes/XACTI/MIC_A_SD/  		; l *.WAV |xargs -n1 ${programname}"
+  echo " USAGE[Xacti2]:\$ cd /Volumes/MSD-16GB/MIC_A_SD/		; l *.WAV |xargs -n1 ${programname}"
+  echo " USAGE[Pana  ]:\$ cd /Volumes/ICR-16G/MIC_A_SD/		; l *.WAV |xargs -n1 ${programname}"
+  echo " USAGE[Sony  ]:\$ cd /Volumes/MS-8GB/MSSONY/HIFI/FOLDER01	; l *.WAV |xargs -n1 ${programname}"
+  echo " USAGE[Zoom  ]:\$ cd /Volumes/H6_SD/FOLDER01             ; find . -name \"*.WAV\" -exec ${programname} {} \;"
+  echo " USAGE[DM-750]:\$ cd /Volumes/MSD-08GB/RECORDER/FOLDER_A ; l *.WAV |xargs -n1 ${programname}"
+  echo " USAGE[LS-7  ]:\$ cd /Volumes/LS-32GB/RECORDER/FOLDER_A/    ; l *.WAV |xargs -n1 ${programname}"
+  echo " 機能:"
+  echo "  1. WAVの音声をAIFFに変換しない。"
+  echo "  2. MP3は名称のみ変更します。"
+  echo "  3. ファイル名を録音日時に調整します。"
+  echo "  4. AIFFに変換します.ビットレートとサンプリングdepthはそのままです[R1.5]"
+  echo "  5. Kikimimi形式：年月日_開始時間-終了時間_メーカ_元のファイル名.AIFF"
+  echo "  6. 出力ディレクトリをオプションで指定できます"
+  echo "  8. 時差対応   -090000 （日本に比べ9時間遅い場合）"
+  echo "  9. ZOOM H6のマルチトラックに対応のため、元データ全部をバックアップ[R2.9]"
+  echo "  "
+}
+
+
+#  libraryの読み込み
+libfile="${HOME}/daybreak-bin/libR1.3.bash"
+[ ! -f ${libfile} ] && echo "${prompt} ${libfile} がありません" 1>&2 && exit
+source ${libfile}
+
+set -xuev
+exec 2> $f_log
+
+# ####################################################################################
+# 引数の設定
+# ####################################################################################
+# プロンプト
+prompt="wav2aiff> "
+inputfile=$1 ;  
+[ $# -ge 2 ] && fmt=$2				||	fmt="-"
+[ $# -ge 3 ] && dir_output=$3 ||  dir_output="${HOME}/Desktop"
+[ $# -ge 4 ] && ifs=$4        ||  ifs=""						
+[ $# -ge 5 ] && timediff=$5   ||  timediff="" 		
+[ $# -ge 6 ] && dryrun=$6     ||  dryrun="" 		
+
+# ####################################################################################
+# 確認 
+# ####################################################################################
+[ -f ${inputfile}  ] || abort "${prompt} 入力ファイル(${inputfile})がありません。" ; 
+[ -d ${dir_output} ] || abort "${prompt} 展開先のフォルダ:${dir_output}がありません。"
+
+# 初期値
+_date=$( date +%y%m%d );
+
+FileStamp_to_f666=FileStamp_to_f666.bash ; 
+
+
+# ####################################################################################
+# 出力ファイルの
+# ####################################################################################
+echo "$prompt ${FileStamp_to_f666} ${inputfile} $fmt $ifs $timediff " 
+distfile=$( ${FileStamp_to_f666} ${inputfile} $fmt $ifs $timediff );  
+[ $? -ne 0 ] && abort "${prompt} 戻り値異常で終了 (${FileStamp_to_f666})";
+
+distfilebody=${distfile%.*} ;   
+
+# ####################################################################################
+# ファイル関係の設定
+# ####################################################################################
+dir_inputfile=$( dirname ${inputfile} )
+
+basename=${inputfile##*/}
+filebody=${basename%.*}	
+ext=${basename##*.} 	
+
+[ ${dir_inputfile} = "." 		] && dirname="$(pwd)"
+[ ! ${dir_inputfile} = "." 	] && dirname="$(pwd)/${dir_inputfile}"
+fullpath="${dirname}/${basename}"
+
+filedate=$( gls -l --time-style=+%y%m%d ${inputfile} |awk '{print $6}' )  
+
+case ${ext} in 
+
+	"MP3" | "mp3" ) # MP3なら名前のみ変更
+		distfile=${distfilebody}.mp3
+		outputfile=${dir_output}/${distfile}
+		inxfile=${fullpath/.MP3/.INX}
+		[ -f ${outputfile} ] && abort "${prompt} ERROR: ${outputfile}が存在します。中止します。"
+		echo "$dryrun cp -a ${fullpath} ${outputfile}" 
+		$dryrun cp -a ${fullpath} ${outputfile} ; 
+	;;
+
+	"WAV" | "wav" ) # ファイルをAIFFに
+		#distfile=${distfilebody}.aiff
+		distfile=${distfilebody}.WAV
+		outputfile=${dir_output}/${distfile}
+		inxfile=${fullpath/.WAV/.INX}; 
+		[ -f ${outputfile} ] && abort "${prompt} ERROR: ${outputfile}が存在します。中止します。"
+		#echo "$dryrun sox -q ${fullpath} ${outputfile}"
+		#$dryrun sox -q ${fullpath} ${outputfile}
+		echo "$dryrun mv  ${fullpath} ${outputfile}"
+		$dryrun mv ${fullpath} ${outputfile}
+	;;
+
+	* )
+		abort "${prompt} $ext　は定義されていません"
+	;;
+esac
+
+# ####################################################################################
+# 処理：バックアップ
+# ####################################################################################
+# logfileからメーカー名と機種情報を取り出しバックアップディレクトリを設定
+maker=$( 	FileStamp_to_f666.bash  $inputfile $fmt . +000000 - show_maker  | awk '{print $1}' )
+item=$( 	FileStamp_to_f666.bash  $inputfile $fmt . +000000 - show_maker  | awk '{print $2}')
+[ -z "${maker}" ] && abort "maker情報が空です"; # test -z は空の判定
+[ -z "${item}"  ] && abort "item情報が空です"
+
+dir_backup="${HOME}/Desktop/OriginalSound/${_date}_${maker}_${item}"  
+[ ! -d ${dir_backup} ] && mkdir -p ${dir_backup} && echo "${dir_backup}を作りました" 
+
+# ZOOMの場合
+if [[ ${maker} = "ZOOM" ]] ; then # hprjファイルはコピーしておく。マルチトラックの音声ファイルに必要
+	zoomdir="${dir_backup}/$(basename ${dirname})"
+	hprjfile=$( ls ${dirname}/*.hprj )
+	hprjbasename=${hprjfile##*/}      
+	hprjfilename=${hprjbasename%.*}   
+	# バックアップフォルダを作成
+	[ ! -d ${zoomdir} ] && echo "${dryrun} mkdir -p ${zoomdir}"  && ${dryrun} mkdir ${zoomdir}; 
+	[ -e ${zoomdir}/${hprjbasename} ] && $abort "ファイル($hprjbasename)があります。中止"
+	echo "${dryrun} mv ${hprjfile} ${zoomdir}" 
+    ${dryrun} mv ${hprjfile} ${zoomdir} ;
+	dir_backup=${zoomdir}; 
+fi
+
+# ####################################################################################
+# 処理：オリジナルの移動
+# ####################################################################################
+[ -f ${dir_backup}/${basename} ] && abort "バックアップ先(${dir_backup})に同ファイルがあります。${fullpath}はバックアップされませんでした。"
+echo "${dryrun} mv ${fullpath} ${dir_backup}" #| tee -a ${logfile}
+${dryrun} mv ${fullpath} ${dir_backup};
+
+# ####################################################################################
+# インデックスファイルの処理
+# ####################################################################################
+[ -f ${inxfile} ] && echo "$dryrun rm ${inxfile}" && ${dryrun} rm ${inxfile} 
+datfile="OLYML_TB.DAT" 
+[ -f ${datfile} ] && echo "$dryrun rm ${datfile}" && ${dryrun} rm ${datfile}
+
+dir_ICR=$(pwd | awk -F/ '{print "/"$2"/"$3}')
+echo -n "cd ~/Desktop; diskutil eject ${dir_ICR}"  | pbcopy
+
+exit 0
+
+# ################################################################################
+# ファイル名からメーカと機種(item)の決定 ###
+# ################################################################################
+if [ $rectime != "0" ]; then
+  maker="FORCE"
+	item="FORCE"
+elif [[ $filebody =~ ^[0-5][0-9][01][0-9][0-3][0-9]_[0-2][0-9][0-5][0-9][0-5][0-9]-[0-2][0-9][0-5][0-9][0-5][0-9]_[A-Z]* ]] ;then
+	maker="Kikimimi"
+	item="Kikimimi"
+elif [[ "$filebody" =~ ^[0-2][0-9][01][0-9][0-3][0-9][0-9][0-9]$ ]] ; then 
+	# $filebody=19090101場合：
+	# ファイル名＝15010100.WAV
+	maker="SONY" ; # PCM-D1@SONY
+	item="D1" ; # PCM-D1@SONY
+# 同じファイル名の場合の振り分け
+elif [[ $filebody =~ ^[0-2][0-9][01][0-9][0-3][0-9]_[0-9][0-9][0-9][0-9] ]]; then
+		if	[[ ${devicename} = "DR-05" ]]; then
+	# TASCAM filename=/Volumes/DR-05/190904_0005.mp3 
+		maker="TASCAM";
+		item="DR5";
+	elif	 [[ $ext == "WAV" || $ext == "MP3" ]] ; then
+	# DM-750は$filebodyだけだとAppleと区別できないなー。なので拡張子が大文字か小文字かで判別する
+	# DM-750のfilename=/Volumes/DM750/RECORDER/FOLDER_A/191003_0017.MP3
+		maker="OLYMPUS" ;
+		item="DM" ;
+	else
+	# ファイル名＝160813_0000.wav
+		maker="Apple" ; # 処理はSONYのD1と同じなのでそう設定する。
+		item="iPhone" ; # Apple iPhoneのPCMRecoderのアプリの場合
+		fi
+elif [[ "$filebody" =~ ^[0-9][0-9][0-9][A-Z]_[0-2][0-9][01][0-9][0-3][0-9]_[0-2][0-9][0-5][0-9] ]] ; then 
+	# ファイル名＝001A_170607_0201.MP3
+	maker="SANYO" ; #Xacti@Sanyo1
+	item="XT" ; # PCM-D1@SONY
+elif [[ "$filebody" =~ ^[0-9][0-9][0-9]_[0-2][0-9][01][0-9][0-3][0-9]_[0-2][0-9][0-5][0-9] ]] ; then 
+	# ファイル名＝001A_170607_0201.MP3
+	maker="PANASONIC" ;	# RR-XS455@PANASONIC
+	item="RR" ; # PCM-D1@SONY
+elif [[ "$filebody" =~ ^ZOOM[0-9][0-9][0-9][0-9] ]] ; then # Zoomだ
+	maker="ZOOM" ; 
+	item="H6" ; # PCM-D1@SONY
+elif [[ $filebody =~ ^LS ]]; then
+	maker="OLYMPUS" ;
+	item="L7" ;
+elif [[ $filebody =~ ^REC[0-9][0-9][0-9] ]]; then
+	maker="PECHAM" ;
+	item="PE" ;
+elif [[ $filebody =~ ^20[12][0-9]-[01][0-9]-[0-3][0-9]-[0-2][0-9]-[0-5][0-9]-[0-5][0-9] ]] && [ ${devicename} = "EVISTER-L36" ]; then
+	maker="EVISTR" ;
+	item="EV" ;
+elif [[ $filebody =~ ^20[12][0-9]-[01][0-9]-[0-3][0-9]-[0-2][0-9]-[0-5][0-9]-[0-5][0-9] ]] && [ ${devicename} = "COOAU" ]; then
+	maker="COOAU" ;
+	item="CO" ;
+elif [[ $filebody =~ ^20[12][0-9]-[01][0-9]-[0-3][0-9]-[0-2][0-9]-[0-5][0-9]-[0-5][0-9] ]] && [ ${devicename} = "TENSWALL" ]; then
+	maker="TENSWALL" ;
+	item="VR" ;
+### [Xacti ICR^PS286RMの場合
+elif [[ $filebody =~ ^IC_[A-D]_[0-9][0-9][0-9] ]] ; then
+	maker="SANYO" ;
+	item="XR" ;
+else
+		 maker="un" ; # unkown
+		 echo "Maker is unkown. Quit!" >&2
+		 exit 1
+fi
+
+# ################################################################################
+# Makerによりファイルの録音開始時間(filestart)と録音終了時間(filestop)を決定する
+# ################################################################################
+# ファイル名にある録音日
+namedate="";
+# ファイル名にある録音開始時刻
+namestart="";
+# ファイル名にある録音終了時刻
+namestop="";
+# filewhichはファイルスタンプの意味が開始か終了時間か
+filewhich='';
+
+# 機種別に設定
+case "${item}" in 
+	"FORCE")
+		logo='FORCE'
+		filewhich="開始"
+	;;
+	"DR")
+		logo='TASCAM';
+		filewhich="終了"
+		namedate=${filebody:0:6};
+	;;
+
+	"VR")
+		logo='VoiveR';
+		filewhich="終了"
+		namedate=${filebody:2:2}${filebody:5:2}${filebody:8:2} ;
+		namestart=${filebody:11:2}${filebody:14:2}${filebody:17:2} ;
+		ifs="ifs"; #タイムスタンプを無視するモードにして名前の情報を使う
+	;;
+
+	"CO")
+		logo='COOAU';
+		filewhich="終了"
+		namedate=${filebody:2:2}${filebody:5:2}${filebody:8:2} ;
+		namestart=${filebody:11:2}${filebody:14:2}${filebody:17:2} ;
+		ifs="ifs"; #タイムスタンプを無視するモードにして名前の情報を使う
+	;;
+
+	"EV")
+		logo='EVISTR';
+		filewhich="終了"
+		namedate=${filebody:2:2}${filebody:5:2}${filebody:8:2} ;
+		namestart=${filebody:11:2}${filebody:14:2}${filebody:17:2} ;
+		ifs="ifs"; #タイムスタンプを無視するモードにして名前の情報を使う
+	;;
+
+	"PE")
+		logo='PECHAM';
+		filewhich="終了"
+		namedate="";
+	;;
+
+	"L7")
+		logo='OLYMPUS LS-7';
+		filewhich="終了"
+		namedate=""; # ファイル名に日付情報がない
+	;;
+
+	"DM")
+		logo='OLYMPUS DM-750';
+		filewhich="開始"
+		namedate=${filebody:0:6} ;
+	;;
+
+	"iPhone" )
+		logo='Apple iPhone'; 
+		filewhich="終了" ; 
+		namedate=${filebody:0:6} ;
+		namestart=${filebody:7:6};
+	;;
+
+	"D1" )		 
+		logo='SONY PCM-D1'
+		filewhich="終了" ; 
+		namedate=${filebody:0:6} ;
+	;;
+
+	"RR" )
+		logo='PANASONIC_RR-XS455' ;#	echo "$logo"
+		filewhich="開始" ; 
+		namedate=${filebody:4:6} ; # ファイル名の日付
+		namestart="${filebody:11:4}00" ; # ファイル名の録音開始時間
+	;;
+
+	"XT" )
+		logo='SANYO_Xacti'
+		filewhich="開始" ;
+		namedate=${filebody:5:6} ;
+		namestart="${filebody:12:4}00" ; # ファイル名の録音開始時間
+	;;
+
+	"XR" )
+		logo='SANYO_Xacti'
+		filewhich="開始" ;
+		namedate=${filedate}
+		namestart=${filestamp} ;
+		namestop=$( add_time ${namestart} ${duration} ); #	"SANYO-namestop" ) 	;	echo "namestop=${namestop}"
+		 ;;
+
+	"H6" )
+		logo='Zoom_H6'
+		filewhich="終了"
+		hprjfile=$( ls ${dirname}/*.hprj )
+		hprjbasename=${hprjfile##*/}
+		hprjfilename=${hprjbasename%.*}
+		namedate=${hprjfilename:0:6}
+		namestart=${hprjfilename:7:6}
+		namedate=""
+		namestart=""
+	;;
+
+	"DR5" )
+		logo='TASCAM_DR-05'
+		filewhich="終了"
+		namedate=$filedate
+		
+	;;
+
+	"Kikimimi" )
+		filewhich="開始"
+		logo=
+		namedate=${filebody:0:6};
+		namestart=${filebody:7:6}
+		filebody=${filebody:21};
+esac		 
