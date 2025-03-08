@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 __version__ = 'v0.0.3'
-__last_updated__ = '2024-03-08 14:25:30'
+__last_updated__ = '2025-03-08 12:59:13'
 
 """
 v0.0.3の変更点：
