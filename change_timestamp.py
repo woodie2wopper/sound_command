@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-__version__ = 'v0.0.2'
-__last_updated__ = '2025-03-08 12:13:20'
+__version__ = 'v0.0.3'
+__last_updated__ = '2025-03-08 12:59:13'
 
 #!/usr/bin/env python3
 
