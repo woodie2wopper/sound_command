@@ -117,6 +117,76 @@ def is_666_format(filename):
     except (IndexError, ValueError):
         return False
 
+def parse_666_format(filename):
+    """666フォーマットのファイル名を解析し、タイムスタンプと元のファイル名を取得"""
+    try:
+        parts = Path(filename).stem.split('_')
+        if len(parts) < 5:  # YYMMDD_HHMMSS_HHMMSS_ITEM_ORIGINAL
+            return None
+        
+        # タイムスタンプを解析
+        date_str = parts[0]
+        time_str = parts[1]  # 開始時刻を使用
+        
+        year = 2000 + int(date_str[:2])
+        month = int(date_str[2:4])
+        day = int(date_str[4:])
+        hour = int(time_str[:2])
+        minute = int(time_str[2:4])
+        second = int(time_str[4:])
+        
+        timestamp = datetime(year, month, day, hour, minute, second)
+        
+        # オリジナルのファイル名を再構築
+        original_name = '_'.join(parts[4:])  # ITEM以降を結合
+        
+        return timestamp, original_name
+    except (IndexError, ValueError):
+        return None
+
+def revert_to_original(args, input_file):
+    """666フォーマットのファイルを元に戻す"""
+    path = Path(input_file)
+    
+    # 666フォーマットかチェック
+    if not is_666_format(path.name):
+        print(f"# Warning: {path.name} is not in 666 format, skipping", file=sys.stderr)
+        return None
+    
+    # 666フォーマットを解析
+    result = parse_666_format(path.name)
+    if result is None:
+        print(f"# Error: Failed to parse 666 format filename: {path.name}", file=sys.stderr)
+        return None
+    
+    timestamp, original_name = result
+    new_name = f"{original_name}{path.suffix}"
+    
+    # 詳細情報の表示
+    if args.verbose:
+        print("\n# === File Information (ffprobe) ===")
+        details = get_audio_info(input_file)
+        if details:
+            for key, value in details.items():
+                print(f"# {key}: {value}")
+        
+        print("\n# === File Information (stat) ===")
+        stat_info = get_stat_info(input_file)
+        if stat_info:
+            for line in stat_info.splitlines():
+                print(f"# {line}")
+        print("# ==================")
+    
+    # 現在のタイムスタンプと666フォーマットの時刻を比較
+    current_mtime = datetime.fromtimestamp(os.path.getmtime(input_file))
+    time_diff = abs((current_mtime - timestamp).total_seconds())
+    if time_diff > 1:  # 1秒以上の差がある場合
+        print(f"# Warning: Current timestamp ({current_mtime.strftime('%Y-%m-%d %H:%M:%S')}) "
+              f"differs from 666 format timestamp ({timestamp.strftime('%Y-%m-%d %H:%M:%S')})", 
+              file=sys.stderr)
+    
+    return new_name, timestamp
+
 def generate_filename(args, input_file):
     """Generate filename in 666 format or Morishita format"""
     # Parse input file path
@@ -127,22 +197,23 @@ def generate_filename(args, input_file):
     # Check if already in 666 format
     if is_666_format(path.name):
         if args.verbose:
-            print(f"\nSkipping {path.name} - already in 666 format")
+            print(f"# Skipping {path.name} - already in 666 format")
         return None
 
     # Display detailed information
     if args.verbose:
-        print("\n=== File Information (ffprobe) ===")
+        print("# === File Information (ffprobe) ===")
         details = get_audio_info(input_file)
         if details:
             for key, value in details.items():
-                print(f"{key}: {value}")
+                print(f"# {key}: {value}")
         
-        print("\n=== File Information (stat) ===")
+        print("\n# === File Information (stat) ===")
         stat_info = get_stat_info(input_file)
         if stat_info:
-            print(stat_info)
-        print("==================\n")
+            for line in stat_info.splitlines():
+                print(f"# {line}")
+        print("# ==================")
 
     # Get timestamp
     timestamp = datetime.fromtimestamp(os.path.getmtime(input_file))
@@ -207,12 +278,14 @@ def main():
     
     parser.add_argument('files', nargs='+', help='入力ファイル')
     
-    # Group to specify how to handle timestamp
-    time_type = parser.add_mutually_exclusive_group()
-    time_type.add_argument('-s', '--start-time', action='store_true',
-                        help='ファイルスタンプを録音開始時間として扱う')
-    time_type.add_argument('-e', '--end-time', action='store_true',
-                        help='ファイルスタンプを録音終了時間として扱う')
+    # 動作モードを指定するグループ
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument('--revert', action='store_true',
+                         help='666フォーマットのファイル名を元に戻す')
+    mode_group.add_argument('-s', '--start-time', action='store_true',
+                         help='ファイルスタンプを録音開始時間として扱う')
+    mode_group.add_argument('-e', '--end-time', action='store_true',
+                         help='ファイルスタンプを録音終了時間として扱う')
     
     parser.add_argument('-T', '--timestamp', nargs=2, metavar=('YYMMDD', 'HHMMSS'),
                       help='録音時刻を指定（例: 241031 123345）')
@@ -235,8 +308,8 @@ def main():
 
     args = parser.parse_args()
 
-    # Verify time difference format
-    if not args.timediff.startswith(('+', '-')) or not len(args.timediff) == 7:
+    # Verify time difference format (only if not in revert mode)
+    if not args.revert and not args.timediff.startswith(('+', '-')) or not len(args.timediff) == 7:
         print("Error: Time difference must be specified in ±HHMMSS format", file=sys.stderr)
         sys.exit(1)
 
@@ -250,18 +323,37 @@ def main():
             print(f"Error: File '{input_file}' not found", file=sys.stderr)
             continue
 
-        # Generate new filename
-        new_name = generate_filename(args, input_file)
-        if new_name is None:  # Skip if already in 666 format
-            continue
-        
-        # Build output path
-        output_dir = args.output_dir if args.output_dir else os.path.dirname(input_file)
-        new_path = os.path.join(output_dir, new_name)
-
-        # Display command
-        cmd = f"{args.output} {input_file} {new_path}"
-        print(cmd)
+        if args.revert:
+            # 666フォーマットから元に戻す
+            result = revert_to_original(args, input_file)
+            if result is None:
+                continue
+            
+            new_name, timestamp = result
+            output_dir = args.output_dir if args.output_dir else os.path.dirname(input_file)
+            new_path = os.path.join(output_dir, new_name)
+            
+            # mvコマンドを表示
+            mv_cmd = f"{args.output} {input_file} {new_path}"
+            print(mv_cmd)
+            
+            # change_timestamp.pyコマンドを表示（マイクロ秒を含む）
+            date_str = timestamp.strftime('%y%m%d')
+            time_str = timestamp.strftime('%H%M%S.%f')
+            ts_cmd = f"change_timestamp.py -t {date_str} {time_str} -e {new_path}"
+            print(ts_cmd)
+        else:
+            # 通常の666フォーマット変換
+            new_name = generate_filename(args, input_file)
+            if new_name is None:  # Skip if already in 666 format
+                continue
+            
+            output_dir = args.output_dir if args.output_dir else os.path.dirname(input_file)
+            new_path = os.path.join(output_dir, new_name)
+            
+            # コマンドを表示
+            cmd = f"{args.output} {input_file} {new_path}"
+            print(cmd)
 
 if __name__ == '__main__':
     main() 
