@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+__version__ = 'v0.0.5'
+__last_updated__ = '2025-03-10 09:42:25'
+
+#!/usr/bin/env python3
 
 import argparse
 import os
