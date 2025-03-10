@@ -15,10 +15,14 @@ v0.0.3の変更点：
    - 全角オプション（-ｒ、-Ｔなど）にも対応
    - 長いオプション名の全角バージョン（--ｒｅｌａｔｉｖｅなど）も追加
 
+3. ファイル名変更
+   - change_timestamp.py から change_filestamp.py に変更
+   - より一般的な「ファイルスタンプ」という用語に統一
+
 使用例：
-  $ change_timestamp.py -t 240305 183000.123456 -e file.wav    # 絶対時刻（マイクロ秒あり）
-  $ change_timestamp.py -r +010000 023000.123456 -e file.wav   # 相対時間（マイクロ秒あり）
-  $ change_timestamp.py -ｒ +010000 023000.123456 -e file.wav  # 全角オプション
+  $ change_filestamp.py -t 240305 183000.123456 -e file.wav    # 絶対時刻（マイクロ秒あり）
+  $ change_filestamp.py -r +010000 023000.123456 -e file.wav   # 相対時間（マイクロ秒あり）
+  $ change_filestamp.py -ｒ +010000 023000.123456 -e file.wav  # 全角オプション
 """
 
 import argparse
@@ -217,7 +221,7 @@ def change_timestamp(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='ファイルのタイムスタンプを変更するツール',
+        description='ファイルのタイムスタンプ（最終更新日時）を変更するツール',
         formatter_class=argparse.RawTextHelpFormatter
     )
     
@@ -228,9 +232,11 @@ def main():
     
     # 時刻指定方法のグループ
     time_group = parser.add_mutually_exclusive_group(required=True)
-    time_group.add_argument('-t', '--timestamp', nargs=2, metavar=('YYMMDD', 'HHMMSS[.xxxxxx]'),
+    time_group.add_argument('-t', '--timestamp', '-Ｔ', '--ｔｉｍｅｓｔａｍｐ',
+                         nargs=2, metavar=('YYMMDD', 'HHMMSS[.xxxxxx]'),
                          help='絶対時刻を指定（例: 240305 183000.123456）')
-    time_group.add_argument('-r', '--relative', nargs=2, metavar=('±YYMMDD', 'HHMMSS[.xxxxxx]'),
+    time_group.add_argument('-r', '--relative', '-ｒ', '--ｒｅｌａｔｉｖｅ',
+                         nargs=2, metavar=('±YYMMDD', 'HHMMSS[.xxxxxx]'),
                          help='相対時間を指定（例: +010000 023000.123456）')
     
     parser.add_argument('file', help='対象ファイル')

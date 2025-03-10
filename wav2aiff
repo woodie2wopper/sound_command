@@ -13,7 +13,7 @@ i=0;
 # 使い方の表示
 # ####################################################################################
 function show_usage() {
-  echo " FileStamp_to_f666.bashのラッパー"
+  echo " filestamp_to_f666.pyのラッパー"
   echo " USAGE:\$ $programname XX.WAV [mf|-] [~/Desktop|dir_output] [ifs|ifn] [-010000] [dryrun]"
   echo " "
   echo " OPT: [timediff] 時差 : %H%M%Sで入力の事"
@@ -70,7 +70,7 @@ inputfile=$1 ;
 # 初期値
 _date=$( date +%y%m%d );
 
-FileStamp_to_f666=FileStamp_to_f666.bash ; 
+FileStamp_to_f666=filestamp_to_f666.py ; 
 
 
 # ####################################################################################
@@ -129,8 +129,8 @@ esac
 # 処理：バックアップ
 # ####################################################################################
 # logfileからメーカー名と機種情報を取り出しバックアップディレクトリを設定
-maker=$( 	FileStamp_to_f666.bash  $inputfile $fmt . +000000 - show_maker  | awk '{print $1}' )
-item=$( 	FileStamp_to_f666.bash  $inputfile $fmt . +000000 - show_maker  | awk '{print $2}')
+maker=$( 	filestamp_to_f666.py  $inputfile $fmt . +000000 - show_maker  | awk '{print $1}' )
+item=$( 	filestamp_to_f666.py  $inputfile $fmt . +000000 - show_maker  | awk '{print $2}')
 [ -z "${maker}" ] && abort "maker情報が空です"; # test -z は空の判定
 [ -z "${item}"  ] && abort "item情報が空です"
 

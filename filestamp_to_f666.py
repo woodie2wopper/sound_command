@@ -272,7 +272,8 @@ def generate_filename(args, input_file):
 def main():
     parser = argparse.ArgumentParser(
         description='音声・動画ファイルのタイムスタンプから666フォーマットのファイル名を生成\n'
-                   '注意：既に666フォーマット（YYMMDD_HHMMSS_HHMMSS_*）のファイルはスキップされます',
+                   '注意：既に666フォーマット（YYMMDD_HHMMSS_HHMMSS_*）のファイルはスキップされます\n'
+                   'ファイルのタイムスタンプを変更する場合はchange_filestamp.pyを使用してください',
         formatter_class=argparse.RawTextHelpFormatter
     )
     
@@ -337,10 +338,10 @@ def main():
             mv_cmd = f"{args.output} {input_file} {new_path}"
             print(mv_cmd)
             
-            # change_timestamp.pyコマンドを表示（マイクロ秒を含む）
+            # change_filestamp.pyコマンドを表示（マイクロ秒を含む）
             date_str = timestamp.strftime('%y%m%d')
             time_str = timestamp.strftime('%H%M%S.%f')
-            ts_cmd = f"change_timestamp.py -t {date_str} {time_str} -e {new_path}"
+            ts_cmd = f"change_filestamp.py -t {date_str} {time_str} -e {new_path}"
             print(ts_cmd)
         else:
             # 通常の666フォーマット変換
