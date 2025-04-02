@@ -1,0 +1,76 @@
+# 通常のテンポラリファイル
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+._.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Python関連
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+venv/
+.venv/
+ENV/
+
+# テスト関連
+test*
+test*/
+
+# エディタ関連
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+.project
+.pydevproject
+.settings/
+.classpath
+.factorypath
+
+# ログファイル
+*.log
+logs/
+*.log.*
+
+# バイナリファイル
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+
+# メディアファイル（必要に応じてコメントアウト）
+# *.wav
+# *.mp3
+# *.aiff
+# *.flac
+# *.ogg 
