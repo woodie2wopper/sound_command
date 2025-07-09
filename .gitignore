@@ -74,3 +74,7 @@ logs/
 # *.aiff
 # *.flac
 # *.ogg 
+
+# Cursor関連
+.cursorindexingignore 
+.specstory/
