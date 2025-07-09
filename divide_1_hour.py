@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+__version__ = 'v0.0.2'
+__last_updated__ = '2025-07-09 15:05:48'
+
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import sys
