@@ -1,15 +1,15 @@
-# README(sound_command)
+# 1. README(sound_command)
 
 
 
 - NFC関連のlinux/pythonツールです。
 - MacOSのterminalで作っているので、そのほかのプラットフォームは検証されていません
 
-## 前提
+## 1.1. 前提
 
 - python3, ffmpegが入っていること
 
-## コマンド一覧
+## 1.2. コマンド一覧
 
 | command name                    | function                                                     | note                                                         |
 | ------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -26,10 +26,39 @@
 | convert_bird_names.py           | 指定のディレクトリ名を学名から英語名に、またその逆に変換するコマンドを発行します。 | 例） `convert_bird_names.py . -d en2sci | sh -C` |
 | json_to_sqlite.py              | 音声メタデータのJSONファイルをSQLiteデータベースに変換します。xeno-cantoやeBirdなどの音声データベースに対応。 | オプション: --origin (音源の種類), --debug (データベースの初期化), --verbose (詳細な出力) |
 
-## 使い方
+## 1.3. ドキュメント
+
+各コマンドの詳細な使用方法や仕様については、以下のドキュメントを参照してください：
+
+### 音声処理・分析
+- [calculate_recording_times.md](doc/calculate_recording_times.md) - 録音時間集計スクリプトの詳細仕様
+- [divide_1_hour.md](doc/divide_1_hour.md) - 長時間録音の1時間分割スクリプトの詳細仕様
+- [sound_clip_spectrogram.md](doc/sound_clip_spectrogram.md) - 音声クリップとスペクトログラム生成
+
+### 音声分析・測定
+- [searach_Peak_from_toneset.md](doc/searach_Peak_from_toneset.md) - トーンセットからのピーク検出とSN比測定
+- [generate_noisefloor.md](doc/generate_noisefloor.md) - ノイズフロア生成
+- [batch.md](doc/batch.md) - マイクパターン測定のバッチ処理
+
+### データ処理・変換
+- [xeno-canto_to_HTML_table.md](doc/xeno-canto_to_HTML_table.md) - xeno-cantoデータのHTML表変換
+- [make_histdata_each_time.md](doc/make_histdata_each_time.md) - 時間別ヒストグラムデータ生成
+
+### ユーティリティ
+- [filestamp_to_f666.md](doc/filestamp_to_f666.md) - ファイルスタンプから666形式への変換
+- [change_filestamp.md](doc/change_filestamp.md) - ファイルスタンプ変更
+- [find_calls.md](doc/find_calls.md) - コール検索
+- [auto-versioning.md](doc/auto-versioning.md) - 自動バージョニング
+- [time_voice_match.md](doc/time_voice_match.md) - 時間と音声のマッチング
+- [add_epoch.md](doc/add_epoch.md) - エポック時間追加
+- [plot_microphone_pattern.md](doc/plot_microphone_pattern.md) - マイクパターンプロット
+- [separate_to_mono.md](doc/separate_to_mono.md) - ステレオからモノラル分離
+- [cut_sound.md](doc/cut_sound.md) - 音声カット
+
+## 1.4. 使い方
 
 - python <command.py> -hでhelpが表示されます。
-## 共通のオプション
+## 1.5. 共通のオプション
 
 | ショートオプション | ロングオプション | 説明 | デフォルト |
 | --- | --- | --- | --- |
@@ -46,6 +75,8 @@
 | -mx | --max | スペクトログラムの強度の最大値 |  |
 | -mn | --min | スペクトログラムの強度の最小値 |  |
 
-## ライセンス
+## 1.6. ライセンス
+
+このプロジェクトはPublicリポジトリとして公開されています。
 
 - MIT
